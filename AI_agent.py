@@ -6,9 +6,9 @@ import random
 # ========================
 #    定数／設定
 # ========================
-# APIキーは .streamlit/secrets.toml に設定し、st.secrets 経由で取得
+# APIキーは .streamlit/secrets.toml に記述しておく
 API_KEY = st.secrets["general"]["api_key"]
-MODEL_NAME = "gemini-2.0-flash-001"
+MODEL_NAME = "gemini-1.5-flash"
 # 固定の日本人キャラクター名
 NAMES = ["ゆかり", "しんや", "みのる"]
 
@@ -95,33 +95,21 @@ def generate_discussion(question: str, persona_params: dict) -> str:
     )
     return call_gemini_api(prompt)
 
-def continue_discussion(additional_input: str, current_discussion: str) -> str:
-    prompt = (
-        "これまでの会話:\n" + current_discussion + "\n\n" +
-        "ユーザーの追加発言: " + additional_input + "\n\n" +
-        "上記を踏まえ、3人がさらに自然な会話を続けてください。\n"
-        "出力形式は以下:\n"
-        "ゆかり: 発言内容\n"
-        "しんや: 発言内容\n"
-        "みのる: 発言内容\n"
-        "余計なJSON形式は入れず、自然な日本語の会話のみを出力してください。"
-    )
-    return call_gemini_api(prompt)
-
 def generate_summary(discussion: str) -> str:
     prompt = (
         "以下は3人の会話内容です。\n" + discussion + "\n\n" +
-        "この会話を踏まえて、質問に対するまとめ回答を生成してください。\n"
+        "この会話を踏まえて、質問に対するまとめ回答を生成してください。\n" +
         "自然な日本語文で出力し、余計なJSON形式は不要です。"
     )
     return call_gemini_api(prompt)
 
 def display_line_style(text: str):
     lines = text.split("\n")
+    # キャラクターごとに背景色と文字色を設定（背景色に !important を追加）
     color_map = {
-        "ゆかり": {"bg": "#FFD1DC", "color": "#333"},  # 薄いピンク
-        "しんや": {"bg": "#D1E8FF", "color": "#333"},  # 薄いブルー
-        "みのる": {"bg": "#D1FFD1", "color": "#333"}   # 薄いグリーン
+        "ゆかり": {"bg": "#FFD1DC", "color": "#333"},
+        "しんや": {"bg": "#D1E8FF", "color": "#333"},
+        "みのる": {"bg": "#D1FFD1", "color": "#333"}
     }
     for line in lines:
         line = line.strip()
@@ -139,12 +127,12 @@ def display_line_style(text: str):
         text_color = styles["color"]
         bubble_html = f"""
         <div style="
-            background-color: {bg_color};
-            border:1px solid #ddd;
-            border-radius:10px;
-            padding:8px;
-            margin:5px 0;
-            width: fit-content;
+            background-color: {bg_color} !important;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 8px;
+            margin: 5px 0;
+            width: auto;
             color: {text_color};
             font-family: Arial, sans-serif;
         ">
@@ -159,7 +147,7 @@ def display_line_style(text: str):
 # ========================
 st.title("ぼくのともだちv2.0")
 
-# --- 上部：会話表示エリア ---
+# --- 上部：会話履歴表示エリア ---
 st.header("会話履歴")
 discussion_container = st.empty()
 
@@ -194,3 +182,16 @@ if st.button("会話をまとめる"):
         st.markdown("### まとめ回答\n" + "**まとめ:** " + summary)
     else:
         st.warning("まずは会話を開始してください。")
+
+def continue_discussion(additional_input: str, current_discussion: str) -> str:
+    prompt = (
+        "これまでの会話:\n" + current_discussion + "\n\n" +
+        "ユーザーの追加発言: " + additional_input + "\n\n" +
+        "上記を踏まえ、3人がさらに自然な会話を続けてください。\n"
+        "出力形式は以下:\n"
+        "ゆかり: 発言内容\n"
+        "しんや: 発言内容\n"
+        "みのる: 発言内容\n"
+        "余計なJSON形式は入れず、自然な日本語の会話のみを出力してください。"
+    )
+    return call_gemini_api(prompt)
