@@ -11,7 +11,7 @@ st.set_page_config(page_title="ぼくのともだち", layout="wide")
 # ------------------------
 # 定数／設定
 # ------------------------
-# API キーは .streamlit/secrets.toml に設定し、st.secrets 経由で取得
+# APIキーは .streamlit/secrets.toml に記述し、st.secrets 経由で取得
 API_KEY = st.secrets["general"]["api_key"]
 MODEL_NAME = "gemini-2.0-flash-001"  # 必要に応じて変更
 # 固定の日本人キャラクター名
@@ -112,14 +112,14 @@ def continue_discussion(additional_input: str, current_discussion: str) -> str:
 def generate_summary(discussion: str) -> str:
     prompt = (
         "以下は3人の会話内容です。\n" + discussion + "\n\n" +
-        "この会話を踏まえて、質問に対するまとめ回答を生成してください。\n" +
+        "この会話を踏まえて、質問に対するまとめ回答を生成してください。\n"
         "自然な日本語文で出力し、余計なJSON形式は不要です。"
     )
     return call_gemini_api(prompt)
 
 def display_line_style(text: str):
     lines = text.split("\n")
-    # 各キャラクターごとの背景色と文字色
+    # 各キャラクターごとの背景色と文字色（背景色に !important, 幅は65ch に制限）
     color_map = {
         "ゆかり": {"bg": "#FFD1DC", "color": "#000"},
         "しんや": {"bg": "#D1E8FF", "color": "#000"},
@@ -146,7 +146,7 @@ def display_line_style(text: str):
             border-radius: 10px;
             padding: 8px;
             margin: 5px 0;
-            width: auto;
+            max-width: 65ch;
             color: {text_color} !important;
             font-family: Arial, sans-serif !important;
         ">
@@ -168,7 +168,7 @@ discussion_container = st.empty()
 
 # --- 下部：ユーザー入力エリア ---
 st.header("メッセージ入力")
-# 入力エリアには key "user_input" を設定
+# ユーザー入力エリアには key を "user_input" として設定
 if "user_input" not in st.session_state:
     st.session_state["user_input"] = ""
 user_input = st.text_area("新たな発言を入力してください", value=st.session_state["user_input"], placeholder="ここに入力", height=100, key="user_input")
