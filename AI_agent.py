@@ -176,7 +176,7 @@ def display_line_style(text: str):
 # Streamlit アプリ本体
 # ------------------------
 
-st.title("ぼくのともだち - 自然な会話 (複数ターン)")
+st.title("ぼくのともだち")
 
 # --- 上部：会話履歴表示エリア ---
 st.header("会話履歴")
