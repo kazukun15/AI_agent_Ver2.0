@@ -3,37 +3,28 @@ import requests
 import re
 import random
 
+# ------------------------
+# ページ設定（最初に実行）
+# ------------------------
 st.set_page_config(page_title="ぼくのともだち", layout="wide")
 
-# カスタムCSSで入力バーを固定するスタイルを追加
-st.markdown(
-    """
-    <style>
-    /* 入力フォームエリアを固定 */
-    .fixed-footer {
-        position: fixed;
-        bottom: 0;
-        width: 100%;
-        background-color: #FFF;
-        padding: 10px 0;
-        box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
-        z-index: 100;
-    }
-    /* 会話履歴の下部マージンを確保 */
-    .chat-history {
-        margin-bottom: 150px;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
+# ------------------------
+# ユーザーの名前入力（画面上部に表示）
+# ------------------------
+user_name = st.text_input("あなたの名前を入力してください", value="ユーザー", key="user_name")
 
 # ------------------------
 # 定数／設定
 # ------------------------
+# APIキーは .streamlit/secrets.toml に記述してください
+# 例: [general] api_key = "YOUR_GEMINI_API_KEY"
 API_KEY = st.secrets["general"]["api_key"]
-MODEL_NAME = "gemini-2.0-flash-001"
+MODEL_NAME = "gemini-2.0-flash-001"  # 必要に応じて変更
 NAMES = ["ゆかり", "しんや", "みのる"]
+
+# ------------------------
+# 関数定義
+# ------------------------
 
 def analyze_question(question: str) -> int:
     score = 0
@@ -50,12 +41,12 @@ def analyze_question(question: str) -> int:
 def adjust_parameters(question: str) -> dict:
     score = analyze_question(question)
     params = {}
+    # ゆかりさんは常に明るくはっちゃけた性格に固定
+    params["ゆかり"] = {"style": "明るくはっちゃけた", "detail": "楽しい雰囲気で元気な回答"}
     if score > 0:
-        params["ゆかり"] = {"style": "情熱的", "detail": "感情に寄り添う回答"}
         params["しんや"] = {"style": "共感的", "detail": "心情を重視した解説"}
         params["みのる"] = {"style": "柔軟", "detail": "状況に合わせた多面的な視点"}
     else:
-        params["ゆかり"] = {"style": "論理的", "detail": "具体的な解説を重視"}
         params["しんや"] = {"style": "分析的", "detail": "データや事実を踏まえた説明"}
         params["みのる"] = {"style": "客観的", "detail": "中立的な視点からの考察"}
     return params
@@ -97,7 +88,8 @@ def call_gemini_api(prompt: str) -> str:
         return f"エラー: レスポンス解析に失敗しました -> {str(e)}"
 
 def generate_discussion(question: str, persona_params: dict) -> str:
-    prompt = f"【ユーザーの質問】\n{question}\n\n"
+    current_user = st.session_state.get("user_name", "ユーザー")
+    prompt = f"【{current_user}さんの質問】\n{question}\n\n"
     for name, params in persona_params.items():
         prompt += f"{name}は【{params['style']}な視点】で、{params['detail']}。\n"
     prompt += (
@@ -115,7 +107,7 @@ def continue_discussion(additional_input: str, current_discussion: str) -> str:
         "これまでの会話:\n" + current_discussion + "\n\n" +
         "ユーザーの追加発言: " + additional_input + "\n\n" +
         "上記を踏まえ、3人がさらに自然な会話を続けてください。\n"
-        "出力形式は以下:\n"
+        "出力形式は以下の通りです。\n"
         "ゆかり: 発言内容\n"
         "しんや: 発言内容\n"
         "みのる: 発言内容\n"
@@ -176,7 +168,7 @@ def display_line_style(text: str):
 # Streamlit アプリ本体
 # ------------------------
 
-st.title("ぼくのともだちV2.0")
+st.title("ぼくのともだち V2.1")
 
 # --- 上部：会話履歴表示エリア ---
 st.header("会話履歴")
