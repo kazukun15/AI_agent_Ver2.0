@@ -3,21 +3,23 @@ import requests
 import re
 import random
 
-# ========================
-#    ページ設定
-# ========================
+# ------------------------
+# ページ設定（最初に実行）
+# ------------------------
 st.set_page_config(page_title="ぼくのともだち", layout="wide")
 
-# ========================
-#    定数／設定
-# ========================
+# ------------------------
+# 定数／設定
+# ------------------------
+# API キーは .streamlit/secrets.toml で管理（例：[general] api_key = "YOUR_GEMINI_API_KEY"）
 API_KEY = st.secrets["general"]["api_key"]
-MODEL_NAME = "gemini-2.0-flash-001"  # 必要に応じて変更
+MODEL_NAME = "gemini-2.0-flash-001"  # モデルを指定
+# 固定の日本人キャラクター名
 NAMES = ["ゆかり", "しんや", "みのる"]
 
-# ========================
-#    関数定義
-# ========================
+# ------------------------
+# 関数定義
+# ------------------------
 
 def analyze_question(question: str) -> int:
     score = 0
@@ -53,11 +55,7 @@ def remove_json_artifacts(text: str) -> str:
 
 def call_gemini_api(prompt: str) -> str:
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL_NAME}:generateContent?key={API_KEY}"
-    payload = {
-        "contents": [{
-            "parts": [{"text": prompt}]
-        }]
-    }
+    payload = {"contents": [{"parts": [{"text": prompt}]}]}
     headers = {"Content-Type": "application/json"}
     try:
         response = requests.post(url, json=payload, headers=headers)
@@ -121,7 +119,7 @@ def generate_summary(discussion: str) -> str:
 
 def display_line_style(text: str):
     lines = text.split("\n")
-    # 各キャラクターごとの背景色と文字色（指定通り）
+    # 各キャラクターごとの背景色と文字色を指定
     color_map = {
         "ゆかり": {"bg": "#FFD1DC", "color": "#000"},
         "しんや": {"bg": "#D1E8FF", "color": "#000"},
@@ -158,9 +156,9 @@ def display_line_style(text: str):
         """
         st.markdown(bubble_html, unsafe_allow_html=True)
 
-# ========================
-#    Streamlit アプリ本体
-# ========================
+# ------------------------
+# Streamlit アプリ本体
+# ------------------------
 
 st.title("ぼくのともだち - 自然な会話 (複数ターン)")
 
@@ -170,8 +168,10 @@ discussion_container = st.empty()
 
 # --- 下部：ユーザー入力エリア ---
 st.header("メッセージ入力")
-# ユーザー入力エリアには key を指定して後でクリア可能にする
-user_input = st.text_area("新たな発言を入力してください", placeholder="ここに入力", height=100, key="user_input")
+# ユーザー入力エリアに key を指定して、送信後に内容をクリアできるようにする
+if "user_input" not in st.session_state:
+    st.session_state["user_input"] = ""
+user_input = st.text_area("新たな発言を入力してください", value=st.session_state["user_input"], placeholder="ここに入力", height=100, key="user_input")
 
 col1, col2 = st.columns([1, 3])
 with col1:
@@ -181,8 +181,7 @@ with col1:
             discussion = generate_discussion(user_input, persona_params)
             st.session_state["discussion"] = discussion
             discussion_container.markdown("### 3人の会話\n" + discussion)
-            # 発言送信後、入力エリアをクリア
-            st.session_state["user_input"] = ""
+            st.session_state["user_input"] = ""  # 入力エリアをクリア
         else:
             st.warning("発言を入力してください。")
 with col2:
@@ -191,7 +190,7 @@ with col2:
             new_discussion = continue_discussion(user_input, st.session_state["discussion"])
             st.session_state["discussion"] += "\n" + new_discussion
             discussion_container.markdown("### 3人の会話\n" + st.session_state["discussion"])
-            st.session_state["user_input"] = ""
+            st.session_state["user_input"] = ""  # 入力エリアをクリア
         else:
             st.warning("まずは初回の会話を開始してください。")
 
