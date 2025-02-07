@@ -4,15 +4,38 @@ import re
 import random
 
 # ========================
+#    ページ設定
+# ========================
+st.set_page_config(
+    page_title="ぼくのともだち",
+    layout="wide",  # 画面幅いっぱいに表示
+    initial_sidebar_state="auto"
+)
+
+# カスタムCSSで全体のフォントや背景を設定（参考サイトを元に調整）
+st.markdown(
+    """
+    <style>
+    /* 全体のフォント設定 */
+    body, .reportview-container, .main, .block-container {
+        font-family: Arial, sans-serif;
+        color: #333;
+    }
+    /* コンテナの余白・パディングを調整 */
+    .block-container {
+        padding: 1rem 2rem;
+    }
+    /* 入力エリア・ボタン周りのスタイル（必要に応じて追加） */
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# ========================
 #    定数／設定
 # ========================
-# .streamlit/secrets.toml に [general] セクションで api_key を設定してください。
-# 例: 
-# [general]
-# api_key = "YOUR_GEMINI_API_KEY"
-API_KEY = st.secrets["general"]["api_key"]
-MODEL_NAME = "gemini-2.0-flash-001"  # 必要に応じて変更
-# 固定の日本人キャラクター名
+API_KEY = st.secrets["general"]["api_key"]  # .streamlit/secrets.toml に記述
+MODEL_NAME = "gemini-2.0-flash-001"  # モデルを2.0-flash-001に変更
 NAMES = ["ゆかり", "しんや", "みのる"]
 
 # ========================
@@ -53,11 +76,7 @@ def remove_json_artifacts(text: str) -> str:
 
 def call_gemini_api(prompt: str) -> str:
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL_NAME}:generateContent?key={API_KEY}"
-    payload = {
-        "contents": [{
-            "parts": [{"text": prompt}]
-        }]
-    }
+    payload = {"contents": [{"parts": [{"text": prompt}]}]}
     headers = {"Content-Type": "application/json"}
     try:
         response = requests.post(url, json=payload, headers=headers)
@@ -89,7 +108,7 @@ def generate_discussion(question: str, persona_params: dict) -> str:
     for name, params in persona_params.items():
         prompt += f"{name}は【{params['style']}な視点】で、{params['detail']}。\n"
     prompt += (
-        "\n上記情報を元に、3人が友達同士のように自然な会話をしてください。\n"
+        "\n上記情報を元に、3人が友達同士の自然な会話をしてください。\n"
         "出力形式は以下の通りです。\n"
         "ゆかり: 発言内容\n"
         "しんや: 発言内容\n"
@@ -114,15 +133,14 @@ def continue_discussion(additional_input: str, current_discussion: str) -> str:
 def generate_summary(discussion: str) -> str:
     prompt = (
         "以下は3人の会話内容です。\n" + discussion + "\n\n" +
-        "この会話を踏まえて、質問に対するまとめ回答を生成してください。\n" +
+        "この会話を踏まえて、質問に対するまとめ回答を生成してください。\n"
         "自然な日本語文で出力し、余計なJSON形式は不要です。"
     )
     return call_gemini_api(prompt)
 
 def display_line_style(text: str):
-    """会話の各行を改行で分割し、LINE風の吹き出し形式で表示する。"""
     lines = text.split("\n")
-    # 各キャラクターごとに背景色と文字色を指定
+    # 各キャラクターの背景色と文字色（指定通り）
     color_map = {
         "ゆかり": {"bg": "#FFD1DC", "color": "#000"},
         "しんや": {"bg": "#D1E8FF", "color": "#000"},
@@ -160,11 +178,14 @@ def display_line_style(text: str):
         st.markdown(bubble_html, unsafe_allow_html=True)
 
 # ========================
-#    Streamlit アプリ
+#    Streamlit アプリ本体
 # ========================
+
+st.set_page_config(page_title="ぼくのともだち", layout="wide")
+
 st.title("ぼくのともだち - 自然な会話 (複数ターン)")
 
-# --- 上部：会話表示エリア ---
+# --- 上部：会話履歴表示エリア ---
 st.header("会話履歴")
 discussion_container = st.empty()
 
