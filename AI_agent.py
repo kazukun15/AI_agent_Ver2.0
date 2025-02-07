@@ -11,10 +11,8 @@ st.set_page_config(page_title="ぼくのともだち", layout="wide")
 # ------------------------
 # 定数／設定
 # ------------------------
-# APIキーは .streamlit/secrets.toml に記述し、st.secrets 経由で取得
-API_KEY = st.secrets["general"]["api_key"]
+API_KEY = st.secrets["general"]["api_key"]  # .streamlit/secrets.toml に記述してください
 MODEL_NAME = "gemini-2.0-flash-001"  # 必要に応じて変更
-# 固定の日本人キャラクター名
 NAMES = ["ゆかり", "しんや", "みのる"]
 
 # ------------------------
@@ -112,49 +110,58 @@ def continue_discussion(additional_input: str, current_discussion: str) -> str:
 def generate_summary(discussion: str) -> str:
     prompt = (
         "以下は3人の会話内容です。\n" + discussion + "\n\n" +
-        "この会話を踏まえて、質問に対するまとめ回答を生成してください。\n"
+        "この会話を踏まえて、質問に対するまとめ回答を生成してください。\n" +
         "自然な日本語文で出力し、余計なJSON形式は不要です。"
     )
     return call_gemini_api(prompt)
 
-def display_line_style(text: str):
+def display_grouped_conversation(text: str):
+    """
+    会話テキストを各キャラクターごとにグループ化して、各グループを横に並べて表示する。
+    各キャラクターの背景色、文字色、フォント、最大幅は指定通りに設定。
+    """
+    # 各キャラクターごとにメッセージリストを用意
+    groups = {"ゆかり": [], "しんや": [], "みのる": []}
     lines = text.split("\n")
-    # 各キャラクターごとの背景色と文字色（背景色に !important, 幅は65ch に制限）
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        match = re.match(r"^(ゆかり|しんや|みのる):\s*(.*)$", line)
+        if match:
+            name = match.group(1)
+            message = match.group(2)
+            groups[name].append(message)
+        else:
+            # 形式に合わない行は全体に追加（任意）
+            for key in groups:
+                groups[key].append(line)
+    # 各キャラクターの背景色と文字色
     color_map = {
         "ゆかり": {"bg": "#FFD1DC", "color": "#000"},
         "しんや": {"bg": "#D1E8FF", "color": "#000"},
         "みのる": {"bg": "#D1FFD1", "color": "#000"}
     }
-    for line in lines:
-        line = line.strip()
-        if not line:
-            continue
-        matched = re.match(r"^(.*?):\s*(.*)$", line)
-        if matched:
-            name = matched.group(1)
-            message = matched.group(2)
-        else:
-            name = ""
-            message = line
-        styles = color_map.get(name, {"bg": "#F5F5F5", "color": "#000"})
-        bg_color = styles["bg"]
-        text_color = styles["color"]
-        bubble_html = f"""
-        <div style="
-            background-color: {bg_color} !important;
-            border: 1px solid #ddd;
-            border-radius: 10px;
-            padding: 8px;
-            margin: 5px 0;
-            max-width: 65ch;
-            color: {text_color} !important;
-            font-family: Arial, sans-serif !important;
-        ">
-            <strong>{name}</strong><br>
-            {message}
-        </div>
-        """
-        st.markdown(bubble_html, unsafe_allow_html=True)
+    cols = st.columns(3)
+    for i, name in enumerate(["ゆかり", "しんや", "みのる"]):
+        with cols[i]:
+            st.markdown(f"### {name}")
+            for msg in groups[name]:
+                bubble_html = f"""
+                <div style="
+                    background-color: {color_map[name]['bg']} !important;
+                    border: 1px solid #ddd;
+                    border-radius: 10px;
+                    padding: 8px;
+                    margin: 5px 0;
+                    max-width: 65ch;
+                    color: {color_map[name]['color']} !important;
+                    font-family: Arial, sans-serif !important;
+                ">
+                    {msg}
+                </div>
+                """
+                st.markdown(bubble_html, unsafe_allow_html=True)
 
 # ------------------------
 # Streamlit アプリ本体
@@ -168,7 +175,6 @@ discussion_container = st.empty()
 
 # --- 下部：ユーザー入力エリア ---
 st.header("メッセージ入力")
-# ユーザー入力エリアには key を "user_input" として設定
 if "user_input" not in st.session_state:
     st.session_state["user_input"] = ""
 user_input = st.text_area("新たな発言を入力してください", value=st.session_state["user_input"], placeholder="ここに入力", height=100, key="user_input")
@@ -180,7 +186,8 @@ with col1:
             persona_params = adjust_parameters(user_input)
             discussion = generate_discussion(user_input, persona_params)
             st.session_state["discussion"] = discussion
-            discussion_container.markdown("### 3人の会話\n" + discussion)
+            discussion_container.markdown("### 3人の会話", unsafe_allow_html=True)
+            display_grouped_conversation(discussion)
             if "user_input" in st.session_state:
                 del st.session_state["user_input"]
         else:
@@ -190,7 +197,8 @@ with col2:
         if user_input.strip() and st.session_state.get("discussion", ""):
             new_discussion = continue_discussion(user_input, st.session_state["discussion"])
             st.session_state["discussion"] += "\n" + new_discussion
-            discussion_container.markdown("### 3人の会話\n" + st.session_state["discussion"])
+            discussion_container.markdown("### 3人の会話", unsafe_allow_html=True)
+            display_grouped_conversation(st.session_state["discussion"])
             if "user_input" in st.session_state:
                 del st.session_state["user_input"]
         else:
