@@ -176,7 +176,7 @@ def display_line_style(text: str):
 # ========================
 #    Streamlit アプリ
 # ========================
-st.title("ぼくのともだち")
+st.title("ぼくのともだちv2.0")
 
 # --- 上部：会話表示エリア ---
 st.header("会話履歴")
