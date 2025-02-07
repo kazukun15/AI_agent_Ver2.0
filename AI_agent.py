@@ -11,9 +11,9 @@ st.set_page_config(page_title="ぼくのともだち", layout="wide")
 # ------------------------
 # 定数／設定
 # ------------------------
-# API キーは .streamlit/secrets.toml で管理（例：[general] api_key = "YOUR_GEMINI_API_KEY"）
+# API キーは .streamlit/secrets.toml に設定し、st.secrets 経由で取得
 API_KEY = st.secrets["general"]["api_key"]
-MODEL_NAME = "gemini-2.0-flash-001"  # モデルを指定
+MODEL_NAME = "gemini-2.0-flash-001"  # 必要に応じて変更
 # 固定の日本人キャラクター名
 NAMES = ["ゆかり", "しんや", "みのる"]
 
@@ -119,7 +119,7 @@ def generate_summary(discussion: str) -> str:
 
 def display_line_style(text: str):
     lines = text.split("\n")
-    # 各キャラクターごとの背景色と文字色を指定
+    # 各キャラクターごとの背景色と文字色
     color_map = {
         "ゆかり": {"bg": "#FFD1DC", "color": "#000"},
         "しんや": {"bg": "#D1E8FF", "color": "#000"},
@@ -168,7 +168,7 @@ discussion_container = st.empty()
 
 # --- 下部：ユーザー入力エリア ---
 st.header("メッセージ入力")
-# ユーザー入力エリアに key を指定して、送信後に内容をクリアできるようにする
+# 入力エリアには key "user_input" を設定
 if "user_input" not in st.session_state:
     st.session_state["user_input"] = ""
 user_input = st.text_area("新たな発言を入力してください", value=st.session_state["user_input"], placeholder="ここに入力", height=100, key="user_input")
@@ -181,7 +181,8 @@ with col1:
             discussion = generate_discussion(user_input, persona_params)
             st.session_state["discussion"] = discussion
             discussion_container.markdown("### 3人の会話\n" + discussion)
-            st.session_state["user_input"] = ""  # 入力エリアをクリア
+            if "user_input" in st.session_state:
+                del st.session_state["user_input"]
         else:
             st.warning("発言を入力してください。")
 with col2:
@@ -190,7 +191,8 @@ with col2:
             new_discussion = continue_discussion(user_input, st.session_state["discussion"])
             st.session_state["discussion"] += "\n" + new_discussion
             discussion_container.markdown("### 3人の会話\n" + st.session_state["discussion"])
-            st.session_state["user_input"] = ""  # 入力エリアをクリア
+            if "user_input" in st.session_state:
+                del st.session_state["user_input"]
         else:
             st.warning("まずは初回の会話を開始してください。")
 
