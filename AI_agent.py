@@ -11,7 +11,8 @@ st.set_page_config(page_title="ぼくのともだち", layout="wide")
 # ------------------------
 # 定数／設定
 # ------------------------
-# API キーは .streamlit/secrets.toml に設定し、st.secrets 経由で取得
+# APIキーは .streamlit/secrets.toml に記述し、st.secrets 経由で取得してください
+# 例: .streamlit/secrets.toml に [general] api_key = "YOUR_GEMINI_API_KEY" と記述
 API_KEY = st.secrets["general"]["api_key"]
 MODEL_NAME = "gemini-2.0-flash-001"  # 必要に応じて変更
 # 固定の日本人キャラクター名
@@ -117,9 +118,13 @@ def generate_summary(discussion: str) -> str:
     )
     return call_gemini_api(prompt)
 
-def display_line_style(text: str):
+def display_horizontal_conversation(text: str):
+    """
+    会話テキストを横スクロール可能なコンテナ内に、各キャラクターごとの吹き出しとして表示する。
+    各吹き出しは背景色、文字色、フォント、最大幅65ch を指定。
+    """
     lines = text.split("\n")
-    # 各キャラクターごとの背景色と文字色
+    bubble_htmls = []
     color_map = {
         "ゆかり": {"bg": "#FFD1DC", "color": "#000"},
         "しんや": {"bg": "#D1E8FF", "color": "#000"},
@@ -129,32 +134,35 @@ def display_line_style(text: str):
         line = line.strip()
         if not line:
             continue
-        matched = re.match(r"^(.*?):\s*(.*)$", line)
-        if matched:
-            name = matched.group(1)
-            message = matched.group(2)
+        match = re.match(r"^(ゆかり|しんや|みのる):\s*(.*)$", line)
+        if match:
+            name = match.group(1)
+            message = match.group(2)
         else:
             name = ""
             message = line
         styles = color_map.get(name, {"bg": "#F5F5F5", "color": "#000"})
         bg_color = styles["bg"]
         text_color = styles["color"]
-        bubble_html = f"""
-        <div style="
-            background-color: {bg_color} !important;
-            border: 1px solid #ddd;
-            border-radius: 10px;
-            padding: 8px;
-            margin: 5px 0;
-            width: auto;
-            color: {text_color} !important;
-            font-family: Arial, sans-serif !important;
-        ">
-            <strong>{name}</strong><br>
-            {message}
-        </div>
+        bubble = f"""
+            <div style="
+                background-color: {bg_color} !important;
+                border: 1px solid #ddd;
+                border-radius: 10px;
+                padding: 8px;
+                margin: 5px;
+                max-width: 65ch;
+                color: {text_color} !important;
+                font-family: Arial, sans-serif !important;
+                display: inline-block;
+            ">
+                <strong>{name}</strong><br>
+                {message}
+            </div>
         """
-        st.markdown(bubble_html, unsafe_allow_html=True)
+        bubble_htmls.append(bubble)
+    container_html = '<div style="display: flex; overflow-x: auto; white-space: nowrap;">' + "".join(bubble_htmls) + "</div>"
+    st.markdown(container_html, unsafe_allow_html=True)
 
 # ------------------------
 # Streamlit アプリ本体
@@ -168,35 +176,25 @@ discussion_container = st.empty()
 
 # --- 下部：ユーザー入力エリア ---
 st.header("メッセージ入力")
-# 入力エリアには key "user_input" を設定
-if "user_input" not in st.session_state:
-    st.session_state["user_input"] = ""
-user_input = st.text_area("新たな発言を入力してください", value=st.session_state["user_input"], placeholder="ここに入力", height=100, key="user_input")
+with st.form("chat_form", clear_on_submit=True):
+    user_input = st.text_area("新たな発言を入力してください", placeholder="ここに入力", height=100, key="user_input")
+    submit_button = st.form_submit_button("送信")
 
-col1, col2 = st.columns([1, 3])
-with col1:
-    if st.button("会話を開始"):
-        if user_input.strip():
+if submit_button:
+    if user_input.strip():
+        # 最初の会話がない場合は「会話を開始」、ある場合は「会話を続ける」
+        if "discussion" not in st.session_state or not st.session_state["discussion"]:
             persona_params = adjust_parameters(user_input)
             discussion = generate_discussion(user_input, persona_params)
             st.session_state["discussion"] = discussion
-            discussion_container.markdown("### 3人の会話\n" + discussion)
-            if "user_input" in st.session_state:
-                del st.session_state["user_input"]
         else:
-            st.warning("発言を入力してください。")
-with col2:
-    if st.button("会話を続ける"):
-        if user_input.strip() and st.session_state.get("discussion", ""):
             new_discussion = continue_discussion(user_input, st.session_state["discussion"])
             st.session_state["discussion"] += "\n" + new_discussion
-            discussion_container.markdown("### 3人の会話\n" + st.session_state["discussion"])
-            if "user_input" in st.session_state:
-                del st.session_state["user_input"]
-        else:
-            st.warning("まずは初回の会話を開始してください。")
+        discussion_container.markdown("### 3人の会話")
+        display_horizontal_conversation(st.session_state["discussion"])
+    else:
+        st.warning("発言を入力してください。")
 
-# --- まとめ回答生成エリア ---
 st.header("まとめ回答")
 if st.button("会話をまとめる"):
     if st.session_state.get("discussion", ""):
