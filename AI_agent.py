@@ -11,10 +11,9 @@ st.set_page_config(page_title="ぼくのともだち", layout="wide")
 # ------------------------
 # 定数／設定
 # ------------------------
-# API キーは .streamlit/secrets.toml に記述してください
-# 例: [general] api_key = "YOUR_GEMINI_API_KEY"
+# APIキーは .streamlit/secrets.toml に設定してください（例：[general] api_key = "YOUR_GEMINI_API_KEY"）
 API_KEY = st.secrets["general"]["api_key"]
-MODEL_NAME = "gemini-2.0-flash-001"  # モデル指定
+MODEL_NAME = "gemini-2.0-flash-001"  # 必要に応じて変更
 NAMES = ["ゆかり", "しんや", "みのる"]
 
 # ------------------------
@@ -119,8 +118,8 @@ def generate_summary(discussion: str) -> str:
 
 def display_line_style(text: str):
     """
-    会話の各行を順番通りに縦に表示する。
-    各吹き出しは、背景色、文字色、フォントが指定されます。
+    会話の各行を順番通りに縦に表示します。
+    各吹き出しは、キャラクターごとに指定された背景色、文字色、フォントで表示されます。
     """
     lines = text.split("\n")
     color_map = {
@@ -162,7 +161,7 @@ def display_line_style(text: str):
 # Streamlit アプリ本体
 # ------------------------
 
-st.title("ぼくのともだち - 自然な会話 (複数ターン)")
+st.title("ぼくのともだち V2.0")
 
 # --- 上部：会話履歴表示エリア ---
 st.header("会話履歴")
