@@ -6,11 +6,9 @@ import random
 # ========================
 #    定数／設定
 # ========================
-# APIキーは .streamlit/secrets.toml に設定し、st.secrets 経由で取得します。
-# 例: .streamlit/secrets.toml 内に [general] api_key = "YOUR_GEMINI_API_KEY" と記述
+# st.secrets を利用して API キーを隠す（.streamlit/secrets.toml に記述しておく）
 API_KEY = st.secrets["general"]["api_key"]
 MODEL_NAME = "gemini-1.5-flash"
-# 固定の日本人キャラクター名
 NAMES = ["ゆかり", "しんや", "みのる"]
 
 # ========================
@@ -18,7 +16,6 @@ NAMES = ["ゆかり", "しんや", "みのる"]
 # ========================
 
 def analyze_question(question: str) -> int:
-    """質問内容に含まれるキーワードからスコアを算出する"""
     score = 0
     keywords_emotional = ["困った", "悩み", "苦しい", "辛い"]
     keywords_logical = ["理由", "原因", "仕組み", "方法"]
@@ -31,7 +28,6 @@ def analyze_question(question: str) -> int:
     return score
 
 def adjust_parameters(question: str) -> dict:
-    """質問に応じて、各キャラクターのスタイルと詳細を設定する"""
     score = analyze_question(question)
     params = {}
     if score > 0:
@@ -45,7 +41,6 @@ def adjust_parameters(question: str) -> dict:
     return params
 
 def remove_json_artifacts(text: str) -> str:
-    """不要なJSON表記（例: 'parts': [{'text': ...}], 'role': 'model'）を除去する"""
     if not isinstance(text, str):
         text = str(text) if text else ""
     pattern = r"'parts': \[\{'text':.*?\}\], 'role': 'model'"
@@ -53,7 +48,6 @@ def remove_json_artifacts(text: str) -> str:
     return cleaned.strip()
 
 def call_gemini_api(prompt: str) -> str:
-    """gemini-1.5-flash モデルを呼び出し、回答を取得する。"""
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL_NAME}:generateContent?key={API_KEY}"
     payload = {
         "contents": [{
@@ -87,10 +81,6 @@ def call_gemini_api(prompt: str) -> str:
         return f"エラー: レスポンス解析に失敗しました -> {str(e)}"
 
 def generate_discussion(question: str, persona_params: dict) -> str:
-    """
-    ユーザーの質問と各キャラクターの設定情報を基に、3人が自然な会話を行うプロンプトを作成し、結果を返す。
-    出力形式は「ゆかり: 発言内容」「しんや: 発言内容」「みのる: 発言内容」とする。
-    """
     prompt = f"【ユーザーの質問】\n{question}\n\n"
     for name, params in persona_params.items():
         prompt += f"{name}は【{params['style']}な視点】で、{params['detail']}。\n"
@@ -104,28 +94,10 @@ def generate_discussion(question: str, persona_params: dict) -> str:
     )
     return call_gemini_api(prompt)
 
-def continue_discussion(follow_up: str, current_discussion: str) -> str:
-    """
-    既存の会話にユーザーの追加発言を加え、3人がその会話についてさらに話し合うプロンプトを作成し、結果を返す。
-    """
-    prompt = (
-        "これまでの会話:\n" + current_discussion + "\n\n" +
-        "ユーザーの追加発言: " + follow_up + "\n\n" +
-        "上記を踏まえ、3人がさらに話し合ってください。\n"
-        "出力形式は以下:\n"
-        "ゆかり: 発言内容\n"
-        "しんや: 発言内容\n"
-        "みのる: 発言内容\n"
-        "余計なJSON形式は入れず、自然な日本語の会話のみを出力してください。"
-    )
-    return call_gemini_api(prompt)
-
 def generate_summary(discussion: str) -> str:
-    """
-    生成された3人の会話全体をもとに、質問に対するまとめ回答を生成するプロンプトを作成し、結果を返す。
-    """
     prompt = (
-        "以下は3人の会話内容です。\n" + current_discussion + "\n\n" +
+        "以下は3人の会話内容です。\n"
+        f"{discussion}\n\n"
         "この会話を踏まえて、質問に対するまとめ回答を生成してください。\n"
         "自然な日本語文で出力し、余計なJSON形式は不要です。"
     )
@@ -134,13 +106,14 @@ def generate_summary(discussion: str) -> str:
 def display_line_style(text: str):
     """
     会話の各行を改行で分割し、LINE風の吹き出し形式で表示する。
-    文字色は濃い灰色（#333）、フォントはArial, sans-serif を指定。
+    各キャラクターごとに背景色と文字色、フォントを指定。
     """
     lines = text.split("\n")
+    # 各キャラクターの背景色と文字色（濃い灰色: #333）
     color_map = {
-        "ゆかり": {"bg": "#DCF8C6", "color": "#333"},
-        "しんや": {"bg": "#E0F7FA", "color": "#333"},
-        "みのる": {"bg": "#FCE4EC", "color": "#333"}
+        "ゆかり": {"bg": "#FFD1DC", "color": "#000"},
+        "しんや": {"bg": "#D1E8FF", "color": "#000"},
+        "みのる": {"bg": "#D1FFD1", "color": "#000"}
     }
     for line in lines:
         line = line.strip()
@@ -153,7 +126,7 @@ def display_line_style(text: str):
         else:
             name = ""
             message = line
-        styles = color_map.get(name, {"bg": "#F5F5F5", "color": "#333"})
+        styles = color_map.get(name, {"bg": "#F5F5F5", "color": "#000"})
         bg_color = styles["bg"]
         text_color = styles["color"]
         bubble_html = f"""
@@ -180,26 +153,25 @@ st.title("ぼくのともだちv2.0")
 
 # --- 上部：会話表示エリア ---
 st.header("会話履歴")
-discussion_container = st.empty()  # 会話を表示するコンテナ
+discussion_container = st.empty()
 
 # --- 下部：ユーザー入力エリア ---
-st.header("メッセージ入力")
-user_question = st.text_area("新たな質問や追加発言を入力してください", placeholder="ここに入力", height=100)
+st.header("追加入力")
+user_follow = st.text_area("追加発言を入力してください", placeholder="ここに入力", height=100)
 col1, col2 = st.columns([1, 3])
 with col1:
     if st.button("会話を開始"):
-        if user_question.strip():
-            persona_params = adjust_parameters(user_question)
-            discussion = generate_discussion(user_question, persona_params)
+        if user_follow.strip():
+            persona_params = adjust_parameters(user_follow)
+            discussion = generate_discussion(user_follow, persona_params)
             st.session_state["discussion"] = discussion
             discussion_container.markdown("### 3人の会話\n" + discussion)
         else:
-            st.warning("質問を入力してください。")
+            st.warning("追加入力をしてください。")
 with col2:
     if st.button("会話を続ける"):
-        if user_question.strip() and st.session_state.get("discussion", ""):
-            new_discussion = continue_discussion(user_question, st.session_state["discussion"])
-            # 追加入力された会話を履歴に連結
+        if user_follow.strip() and st.session_state.get("discussion", ""):
+            new_discussion = generate_discussion(user_follow, adjust_parameters(user_follow))
             st.session_state["discussion"] += "\n" + new_discussion
             discussion_container.markdown("### 3人の会話\n" + st.session_state["discussion"])
         else:
@@ -211,6 +183,6 @@ if st.button("会話をまとめる"):
     if st.session_state.get("discussion", ""):
         summary = generate_summary(st.session_state["discussion"])
         st.session_state["summary"] = summary
-        st.markdown("**まとめ:** " + summary)
+        st.markdown("### まとめ回答\n" + "**まとめ:** " + summary)
     else:
         st.warning("まずは会話を開始してください。")
