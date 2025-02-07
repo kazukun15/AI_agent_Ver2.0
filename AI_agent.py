@@ -3,16 +3,16 @@ import requests
 import re
 import random
 
-# st.set_page_config は最初に呼び出す必要があります
+# ========================
+#    ページ設定
+# ========================
 st.set_page_config(page_title="ぼくのともだち", layout="wide")
 
 # ========================
 #    定数／設定
 # ========================
-# .streamlit/secrets.toml に [general] セクションで api_key を記述してください
 API_KEY = st.secrets["general"]["api_key"]
 MODEL_NAME = "gemini-2.0-flash-001"  # 必要に応じて変更
-# 固定の日本人キャラクター名
 NAMES = ["ゆかり", "しんや", "みのる"]
 
 # ========================
@@ -121,7 +121,7 @@ def generate_summary(discussion: str) -> str:
 
 def display_line_style(text: str):
     lines = text.split("\n")
-    # 各キャラクターの背景色と文字色（ゆかり：薄いピンク, しんや：薄いブルー, みのる：薄いグリーン）
+    # 各キャラクターごとの背景色と文字色（指定通り）
     color_map = {
         "ゆかり": {"bg": "#FFD1DC", "color": "#000"},
         "しんや": {"bg": "#D1E8FF", "color": "#000"},
@@ -170,7 +170,9 @@ discussion_container = st.empty()
 
 # --- 下部：ユーザー入力エリア ---
 st.header("メッセージ入力")
-user_input = st.text_area("新たな発言を入力してください", placeholder="ここに入力", height=100)
+# ユーザー入力エリアには key を指定して後でクリア可能にする
+user_input = st.text_area("新たな発言を入力してください", placeholder="ここに入力", height=100, key="user_input")
+
 col1, col2 = st.columns([1, 3])
 with col1:
     if st.button("会話を開始"):
@@ -179,6 +181,8 @@ with col1:
             discussion = generate_discussion(user_input, persona_params)
             st.session_state["discussion"] = discussion
             discussion_container.markdown("### 3人の会話\n" + discussion)
+            # 発言送信後、入力エリアをクリア
+            st.session_state["user_input"] = ""
         else:
             st.warning("発言を入力してください。")
 with col2:
@@ -187,6 +191,7 @@ with col2:
             new_discussion = continue_discussion(user_input, st.session_state["discussion"])
             st.session_state["discussion"] += "\n" + new_discussion
             discussion_container.markdown("### 3人の会話\n" + st.session_state["discussion"])
+            st.session_state["user_input"] = ""
         else:
             st.warning("まずは初回の会話を開始してください。")
 
