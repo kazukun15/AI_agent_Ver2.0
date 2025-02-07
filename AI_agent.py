@@ -11,12 +11,10 @@ st.set_page_config(page_title="ぼくのともだち", layout="wide")
 # ------------------------
 # 定数／設定
 # ------------------------
-# APIキーは .streamlit/secrets.toml に設定し、st.secrets 経由で取得
-# 例: .streamlit/secrets.toml
-# [general]
-# api_key = "YOUR_GEMINI_API_KEY"
+# API キーは .streamlit/secrets.toml に記述してください
+# 例: [general] api_key = "YOUR_GEMINI_API_KEY"
 API_KEY = st.secrets["general"]["api_key"]
-MODEL_NAME = "gemini-2.0-flash-001"  # 必要に応じて変更
+MODEL_NAME = "gemini-2.0-flash-001"  # モデル指定
 NAMES = ["ゆかり", "しんや", "みのる"]
 
 # ------------------------
@@ -119,14 +117,12 @@ def generate_summary(discussion: str) -> str:
     )
     return call_gemini_api(prompt)
 
-def display_ordered_conversation(text: str):
+def display_line_style(text: str):
     """
-    会話テキストを分割し、各発言を順番通りに横並びの吹き出しとして表示する。
-    各吹き出しは指定された背景色、文字色、フォントを反映。
+    会話の各行を順番通りに縦に表示する。
+    各吹き出しは、背景色、文字色、フォントが指定されます。
     """
     lines = text.split("\n")
-    bubble_htmls = []
-    # 各キャラクターごとの背景色と文字色
     color_map = {
         "ゆかり": {"bg": "#FFD1DC", "color": "#000"},
         "しんや": {"bg": "#D1E8FF", "color": "#000"},
@@ -136,35 +132,31 @@ def display_ordered_conversation(text: str):
         line = line.strip()
         if not line:
             continue
-        match = re.match(r"^(ゆかり|しんや|みのる):\s*(.*)$", line)
-        if match:
-            name = match.group(1)
-            message = match.group(2)
+        matched = re.match(r"^(ゆかり|しんや|みのる):\s*(.*)$", line)
+        if matched:
+            name = matched.group(1)
+            message = matched.group(2)
         else:
             name = ""
             message = line
         styles = color_map.get(name, {"bg": "#F5F5F5", "color": "#000"})
         bg_color = styles["bg"]
         text_color = styles["color"]
-        bubble = f"""
-            <div style="
-                background-color: {bg_color} !important;
-                border: 1px solid #ddd;
-                border-radius: 10px;
-                padding: 8px;
-                margin: 5px;
-                max-width: 65ch;
-                color: {text_color} !important;
-                font-family: Arial, sans-serif !important;
-                display: inline-block;
-            ">
-                <strong>{name}</strong><br>
-                {message}
-            </div>
+        bubble_html = f"""
+        <div style="
+            background-color: {bg_color} !important;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 8px;
+            margin: 5px 0;
+            color: {text_color} !important;
+            font-family: Arial, sans-serif !important;
+        ">
+            <strong>{name}</strong><br>
+            {message}
+        </div>
         """
-        bubble_htmls.append(bubble)
-    container_html = '<div style="display: flex; overflow-x: auto; white-space: nowrap;">' + "".join(bubble_htmls) + "</div>"
-    st.markdown(container_html, unsafe_allow_html=True)
+        st.markdown(bubble_html, unsafe_allow_html=True)
 
 # ------------------------
 # Streamlit アプリ本体
@@ -185,7 +177,7 @@ with st.form("chat_form", clear_on_submit=True):
 if submit_button:
     if user_input.strip():
         if "discussion" not in st.session_state or not st.session_state["discussion"]:
-            # 初回の会話生成
+            # 初回会話生成
             persona_params = adjust_parameters(user_input)
             discussion = generate_discussion(user_input, persona_params)
             st.session_state["discussion"] = discussion
@@ -194,7 +186,7 @@ if submit_button:
             new_discussion = continue_discussion(user_input, st.session_state["discussion"])
             st.session_state["discussion"] += "\n" + new_discussion
         discussion_container.markdown("### 3人の会話")
-        display_ordered_conversation(st.session_state["discussion"])
+        display_line_style(st.session_state["discussion"])
     else:
         st.warning("発言を入力してください。")
 
