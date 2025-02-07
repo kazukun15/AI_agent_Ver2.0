@@ -3,22 +3,21 @@ import requests
 import re
 import random
 
-# ------------------------
-# ページ設定（最初に実行）
-# ------------------------
+# ========================
+#    ページ設定
+# ========================
 st.set_page_config(page_title="ぼくのともだち", layout="wide")
 
-# ------------------------
-# 定数／設定
-# ------------------------
-# APIキーは .streamlit/secrets.toml に記述してください（例：[general] api_key = "YOUR_GEMINI_API_KEY"）
+# ========================
+#    定数／設定
+# ========================
 API_KEY = st.secrets["general"]["api_key"]
-MODEL_NAME = "gemini-2.0-flash-001"  # モデル指定
+MODEL_NAME = "gemini-2.0-flash-001"  # 必要に応じて変更
 NAMES = ["ゆかり", "しんや", "みのる"]
 
-# ------------------------
-# 関数定義
-# ------------------------
+# ========================
+#    関数定義
+# ========================
 
 def analyze_question(question: str) -> int:
     score = 0
@@ -54,7 +53,11 @@ def remove_json_artifacts(text: str) -> str:
 
 def call_gemini_api(prompt: str) -> str:
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL_NAME}:generateContent?key={API_KEY}"
-    payload = {"contents": [{"parts": [{"text": prompt}]}]}
+    payload = {
+        "contents": [{
+            "parts": [{"text": prompt}]
+        }]
+    }
     headers = {"Content-Type": "application/json"}
     try:
         response = requests.post(url, json=payload, headers=headers)
@@ -111,18 +114,14 @@ def continue_discussion(additional_input: str, current_discussion: str) -> str:
 def generate_summary(discussion: str) -> str:
     prompt = (
         "以下は3人の会話内容です。\n" + discussion + "\n\n" +
-        "この会話を踏まえて、質問に対するまとめ回答を生成してください。\n"
+        "この会話を踏まえて、質問に対するまとめ回答を生成してください。\n" +
         "自然な日本語文で出力し、余計なJSON形式は不要です。"
     )
     return call_gemini_api(prompt)
 
-def display_horizontal_conversation(text: str):
-    """
-    会話テキストを各吹き出しとして横並びに表示する（横スクロール可能）。
-    各吹き出しは、背景色、文字色、フォント、最大幅65ch を指定。
-    """
+def display_line_style(text: str):
     lines = text.split("\n")
-    bubble_htmls = []
+    # 各キャラクターごとの背景色と文字色（指定通り）
     color_map = {
         "ゆかり": {"bg": "#FFD1DC", "color": "#000"},
         "しんや": {"bg": "#D1E8FF", "color": "#000"},
@@ -132,39 +131,36 @@ def display_horizontal_conversation(text: str):
         line = line.strip()
         if not line:
             continue
-        match = re.match(r"^(ゆかり|しんや|みのる):\s*(.*)$", line)
-        if match:
-            name = match.group(1)
-            message = match.group(2)
+        matched = re.match(r"^(.*?):\s*(.*)$", line)
+        if matched:
+            name = matched.group(1)
+            message = matched.group(2)
         else:
             name = ""
             message = line
         styles = color_map.get(name, {"bg": "#F5F5F5", "color": "#000"})
         bg_color = styles["bg"]
         text_color = styles["color"]
-        bubble = f"""
-            <div style="
-                background-color: {bg_color} !important;
-                border: 1px solid #ddd;
-                border-radius: 10px;
-                padding: 8px;
-                margin: 5px;
-                max-width: 65ch;
-                color: {text_color} !important;
-                font-family: Arial, sans-serif !important;
-                display: inline-block;
-            ">
-                <strong>{name}</strong><br>
-                {message}
-            </div>
+        bubble_html = f"""
+        <div style="
+            background-color: {bg_color} !important;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 8px;
+            margin: 5px 0;
+            width: auto;
+            color: {text_color} !important;
+            font-family: Arial, sans-serif !important;
+        ">
+            <strong>{name}</strong><br>
+            {message}
+        </div>
         """
-        bubble_htmls.append(bubble)
-    container_html = '<div style="display: flex; overflow-x: auto; white-space: nowrap;">' + "".join(bubble_htmls) + "</div>"
-    st.markdown(container_html, unsafe_allow_html=True)
+        st.markdown(bubble_html, unsafe_allow_html=True)
 
-# ------------------------
-# Streamlit アプリ本体
-# ------------------------
+# ========================
+#    Streamlit アプリ本体
+# ========================
 
 st.title("ぼくのともだち - 自然な会話 (複数ターン)")
 
@@ -174,9 +170,8 @@ discussion_container = st.empty()
 
 # --- 下部：ユーザー入力エリア ---
 st.header("メッセージ入力")
-if "user_input" not in st.session_state:
-    st.session_state["user_input"] = ""
-user_input = st.text_area("新たな発言を入力してください", value=st.session_state["user_input"], placeholder="ここに入力", height=100, key="user_input")
+# ユーザー入力エリアには key を指定して後でクリア可能にする
+user_input = st.text_area("新たな発言を入力してください", placeholder="ここに入力", height=100, key="user_input")
 
 col1, col2 = st.columns([1, 3])
 with col1:
@@ -185,11 +180,9 @@ with col1:
             persona_params = adjust_parameters(user_input)
             discussion = generate_discussion(user_input, persona_params)
             st.session_state["discussion"] = discussion
-            # 横スクロールの会話表示エリア
-            discussion_container.markdown("### 3人の会話", unsafe_allow_html=True)
-            display_horizontal_conversation(discussion)
-            if "user_input" in st.session_state:
-                del st.session_state["user_input"]
+            discussion_container.markdown("### 3人の会話\n" + discussion)
+            # 発言送信後、入力エリアをクリア
+            st.session_state["user_input"] = ""
         else:
             st.warning("発言を入力してください。")
 with col2:
@@ -197,10 +190,8 @@ with col2:
         if user_input.strip() and st.session_state.get("discussion", ""):
             new_discussion = continue_discussion(user_input, st.session_state["discussion"])
             st.session_state["discussion"] += "\n" + new_discussion
-            discussion_container.markdown("### 3人の会話", unsafe_allow_html=True)
-            display_horizontal_conversation(st.session_state["discussion"])
-            if "user_input" in st.session_state:
-                del st.session_state["user_input"]
+            discussion_container.markdown("### 3人の会話\n" + st.session_state["discussion"])
+            st.session_state["user_input"] = ""
         else:
             st.warning("まずは初回の会話を開始してください。")
 
