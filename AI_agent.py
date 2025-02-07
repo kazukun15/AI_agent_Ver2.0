@@ -6,9 +6,12 @@ import random
 # ========================
 #    定数／設定
 # ========================
-# APIキーは .streamlit/secrets.toml に記述しておく
+# .streamlit/secrets.toml に [general] セクションで api_key を設定してください。
+# 例: 
+# [general]
+# api_key = "YOUR_GEMINI_API_KEY"
 API_KEY = st.secrets["general"]["api_key"]
-MODEL_NAME = "gemini-1.5-flash"
+MODEL_NAME = "gemini-2.0-flash-001"  # 必要に応じて変更
 # 固定の日本人キャラクター名
 NAMES = ["ゆかり", "しんや", "みのる"]
 
@@ -95,6 +98,19 @@ def generate_discussion(question: str, persona_params: dict) -> str:
     )
     return call_gemini_api(prompt)
 
+def continue_discussion(additional_input: str, current_discussion: str) -> str:
+    prompt = (
+        "これまでの会話:\n" + current_discussion + "\n\n" +
+        "ユーザーの追加発言: " + additional_input + "\n\n" +
+        "上記を踏まえ、3人がさらに自然な会話を続けてください。\n"
+        "出力形式は以下:\n"
+        "ゆかり: 発言内容\n"
+        "しんや: 発言内容\n"
+        "みのる: 発言内容\n"
+        "余計なJSON形式は入れず、自然な日本語の会話のみを出力してください。"
+    )
+    return call_gemini_api(prompt)
+
 def generate_summary(discussion: str) -> str:
     prompt = (
         "以下は3人の会話内容です。\n" + discussion + "\n\n" +
@@ -104,12 +120,13 @@ def generate_summary(discussion: str) -> str:
     return call_gemini_api(prompt)
 
 def display_line_style(text: str):
+    """会話の各行を改行で分割し、LINE風の吹き出し形式で表示する。"""
     lines = text.split("\n")
-    # キャラクターごとに背景色と文字色を設定（背景色に !important を追加）
+    # 各キャラクターごとに背景色と文字色を指定
     color_map = {
-        "ゆかり": {"bg": "#FFD1DC", "color": "#333"},
-        "しんや": {"bg": "#D1E8FF", "color": "#333"},
-        "みのる": {"bg": "#D1FFD1", "color": "#333"}
+        "ゆかり": {"bg": "#FFD1DC", "color": "#000"},
+        "しんや": {"bg": "#D1E8FF", "color": "#000"},
+        "みのる": {"bg": "#D1FFD1", "color": "#000"}
     }
     for line in lines:
         line = line.strip()
@@ -122,7 +139,7 @@ def display_line_style(text: str):
         else:
             name = ""
             message = line
-        styles = color_map.get(name, {"bg": "#F5F5F5", "color": "#333"})
+        styles = color_map.get(name, {"bg": "#F5F5F5", "color": "#000"})
         bg_color = styles["bg"]
         text_color = styles["color"]
         bubble_html = f"""
@@ -133,8 +150,8 @@ def display_line_style(text: str):
             padding: 8px;
             margin: 5px 0;
             width: auto;
-            color: {text_color};
-            font-family: Arial, sans-serif;
+            color: {text_color} !important;
+            font-family: Arial, sans-serif !important;
         ">
             <strong>{name}</strong><br>
             {message}
@@ -145,13 +162,13 @@ def display_line_style(text: str):
 # ========================
 #    Streamlit アプリ
 # ========================
-st.title("ぼくのともだちv2.0")
+st.title("ぼくのともだち - 自然な会話 (複数ターン)")
 
-# --- 上部：会話履歴表示エリア ---
+# --- 上部：会話表示エリア ---
 st.header("会話履歴")
 discussion_container = st.empty()
 
-# --- 下部：入力エリア ---
+# --- 下部：ユーザー入力エリア ---
 st.header("メッセージ入力")
 user_input = st.text_area("新たな発言を入力してください", placeholder="ここに入力", height=100)
 col1, col2 = st.columns([1, 3])
@@ -182,16 +199,3 @@ if st.button("会話をまとめる"):
         st.markdown("### まとめ回答\n" + "**まとめ:** " + summary)
     else:
         st.warning("まずは会話を開始してください。")
-
-def continue_discussion(additional_input: str, current_discussion: str) -> str:
-    prompt = (
-        "これまでの会話:\n" + current_discussion + "\n\n" +
-        "ユーザーの追加発言: " + additional_input + "\n\n" +
-        "上記を踏まえ、3人がさらに自然な会話を続けてください。\n"
-        "出力形式は以下:\n"
-        "ゆかり: 発言内容\n"
-        "しんや: 発言内容\n"
-        "みのる: 発言内容\n"
-        "余計なJSON形式は入れず、自然な日本語の会話のみを出力してください。"
-    )
-    return call_gemini_api(prompt)
