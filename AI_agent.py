@@ -3,22 +3,37 @@ import requests
 import re
 import random
 
-# ------------------------
-# ページ設定（最初に実行）
-# ------------------------
 st.set_page_config(page_title="ぼくのともだち", layout="wide")
+
+# カスタムCSSで入力バーを固定するスタイルを追加
+st.markdown(
+    """
+    <style>
+    /* 入力フォームエリアを固定 */
+    .fixed-footer {
+        position: fixed;
+        bottom: 0;
+        width: 100%;
+        background-color: #FFF;
+        padding: 10px 0;
+        box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
+        z-index: 100;
+    }
+    /* 会話履歴の下部マージンを確保 */
+    .chat-history {
+        margin-bottom: 150px;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
 # ------------------------
 # 定数／設定
 # ------------------------
-# APIキーは .streamlit/secrets.toml に設定してください（例：[general] api_key = "YOUR_GEMINI_API_KEY"）
 API_KEY = st.secrets["general"]["api_key"]
-MODEL_NAME = "gemini-2.0-flash-001"  # 必要に応じて変更
+MODEL_NAME = "gemini-2.0-flash-001"
 NAMES = ["ゆかり", "しんや", "みのる"]
-
-# ------------------------
-# 関数定義
-# ------------------------
 
 def analyze_question(question: str) -> int:
     score = 0
@@ -161,7 +176,7 @@ def display_line_style(text: str):
 # Streamlit アプリ本体
 # ------------------------
 
-st.title("ぼくのともだち V2.0")
+st.title("ぼくのともだち - 自然な会話 (複数ターン)")
 
 # --- 上部：会話履歴表示エリア ---
 st.header("会話履歴")
@@ -170,18 +185,16 @@ discussion_container = st.empty()
 # --- 下部：ユーザー入力エリア ---
 st.header("メッセージ入力")
 with st.form("chat_form", clear_on_submit=True):
-    user_input = st.text_area("新たな発言を入力してください。さらに話したい内容を入力してください。", placeholder="ここに入力", height=100, key="user_input")
+    user_input = st.text_area("新たな発言を入力してください", placeholder="ここに入力", height=100, key="user_input")
     submit_button = st.form_submit_button("送信")
 
 if submit_button:
     if user_input.strip():
         if "discussion" not in st.session_state or not st.session_state["discussion"]:
-            # 初回会話生成
             persona_params = adjust_parameters(user_input)
             discussion = generate_discussion(user_input, persona_params)
             st.session_state["discussion"] = discussion
         else:
-            # 既存の会話に対して続行
             new_discussion = continue_discussion(user_input, st.session_state["discussion"])
             st.session_state["discussion"] += "\n" + new_discussion
         discussion_container.markdown("### 3人の会話")
