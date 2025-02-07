@@ -167,7 +167,7 @@ def display_line_style(text: str):
 # ========================
 #    Streamlit アプリ
 # ========================
-st.title("ぼくのともだち")
+st.title("ぼくのともだち - 自然な会話")
 
 # --- 質問入力エリア ---
 question = st.text_area("質問を入力してください", placeholder="例: 官民共創施設の名前を考えてください。", height=150)
