@@ -4,9 +4,12 @@ import re
 import random
 
 # ------------------------
-# ページ設定（最初に実行）
+# ページ設定
 # ------------------------
-st.set_page_config(page_title="ぼくのともだち　V2.2", layout="wide")
+st.set_page_config(page_title="ぼくのともだち", layout="wide")
+
+# タイトルの表示
+st.title("ぼくのともだち V2.2")
 
 # ------------------------
 # ユーザーの名前入力（画面上部に表示）
