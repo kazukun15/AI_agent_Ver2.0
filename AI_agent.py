@@ -2,14 +2,49 @@ import streamlit as st
 import requests
 import re
 import random
+from PIL import Image
 
 # ------------------------
 # ページ設定
 # ------------------------
 st.set_page_config(page_title="ぼくのともだち", layout="wide")
+st.title("ぼくのともだち V3.0")
 
-# タイトルの表示
-st.title("ぼくのともだち V2.2.1")
+# ------------------------
+# 背景・スタイル（オプション）
+# ------------------------
+st.markdown(
+    """
+    <style>
+    /* ページ全体の背景色 */
+    body {
+        background-color: #f0f2f6;
+    }
+
+    /* 会話表示用のコンテナ */
+    .chat-container {
+        max-height: 600px;
+        overflow-y: auto;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        margin-bottom: 20px;
+        background-color: #ffffffaa;
+    }
+
+    /* 固定フッターの配置 */
+    .fixed-footer {
+        position: sticky;
+        bottom: 0;
+        background-color: #ffffff;
+        padding: 10px 0;
+        margin-top: 20px;
+        border-top: 1px solid #ccc;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
 # ------------------------
 # ユーザーの名前入力（画面上部に表示）
@@ -19,15 +54,37 @@ user_name = st.text_input("あなたの名前を入力してください", value
 # ------------------------
 # 定数／設定
 # ------------------------
-# APIキーは .streamlit/secrets.toml に記述してください
-API_KEY = st.secrets["general"]["api_key"]
-MODEL_NAME = "gemini-2.0-flash-001"  # 必要に応じて変更
+API_KEY = st.secrets["general"]["api_key"]  # .streamlit/secrets.toml で設定
+MODEL_NAME = "gemini-2.0-flash-001"         # 必要に応じて変更
 NAMES = ["ゆかり", "しんや", "みのる"]
 
 # ------------------------
-# 関数定義
+# 画像の読み込み
 # ------------------------
+try:
+    img_user = Image.open("avatars/user.png")
+    img_yukari = Image.open("avatars/yukari.png")
+    img_shinya = Image.open("avatars/shinya.png")
+    img_minoru = Image.open("avatars/minoru.png")
+except Exception as e:
+    st.error(f"画像読み込みエラー: {e}")
+    # 画像が読み込めなかった場合のフォールバック
+    img_user = "👤"
+    img_yukari = "🌸"
+    img_shinya = "🌊"
+    img_minoru = "🍀"
 
+# 必要に応じてアバターを使う場合のマッピング
+avatar_dict = {
+    "ユーザー": img_user,
+    "ゆかり": img_yukari,
+    "しんや": img_shinya,
+    "みのる": img_minoru
+}
+
+# ------------------------
+# 各種関数
+# ------------------------
 def analyze_question(question: str) -> int:
     score = 0
     keywords_emotional = ["困った", "悩み", "苦しい", "辛い"]
@@ -43,7 +100,7 @@ def analyze_question(question: str) -> int:
 def adjust_parameters(question: str) -> dict:
     score = analyze_question(question)
     params = {}
-    # ゆかりさんは常に明るくはっちゃけた性格に固定
+    # ゆかり: 常に明るくはっちゃけた
     params["ゆかり"] = {"style": "明るくはっちゃけた", "detail": "楽しい雰囲気で元気な回答"}
     if score > 0:
         params["しんや"] = {"style": "共感的", "detail": "心情を重視した解説"}
@@ -61,6 +118,9 @@ def remove_json_artifacts(text: str) -> str:
     return cleaned.strip()
 
 def call_gemini_api(prompt: str) -> str:
+    """
+    GeminiのAPIをコールし、生成結果（キャラ同士の会話）をテキストで返す。
+    """
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL_NAME}:generateContent?key={API_KEY}"
     payload = {"contents": [{"parts": [{"text": prompt}]}]}
     headers = {"Content-Type": "application/json"}
@@ -128,13 +188,14 @@ def generate_summary(discussion: str) -> str:
 def display_line_style(text: str):
     """
     各発言をキャラクターごとの背景色と文字色で吹き出し形式に表示する。
-    ※ここで、発言の順序を逆転（新しいものが上に来る）して表示します。
+    ※最新の発言が「一番下」に来るようにします。
     """
     lines = text.split("\n")
-    # 空行を除外してリスト化し、逆順にする（最新の発言が先頭に）
+    # 空行を除外
     lines = [line.strip() for line in lines if line.strip()]
-    lines = list(reversed(lines))
-    
+
+    # 発言順をそのまま自然な順序にする (上から古い発言、下が最新発言)
+    # ※もし最新を上にしたければ reversed(lines) にしてください
     color_map = {
         "ゆかり": {"bg": "#FFD1DC", "color": "#000"},
         "しんや": {"bg": "#D1E8FF", "color": "#000"},
@@ -148,6 +209,7 @@ def display_line_style(text: str):
         else:
             name = ""
             message = line
+
         styles = color_map.get(name, {"bg": "#F5F5F5", "color": "#000"})
         bubble_html = f"""
         <div style="
@@ -171,9 +233,13 @@ def display_line_style(text: str):
 if "discussion" not in st.session_state:
     st.session_state["discussion"] = ""
 
+if "summary" not in st.session_state:
+    st.session_state["summary"] = ""
+
 # ------------------------
-# 会話まとめボタン（会話がある場合のみ）
+# 「会話まとめ」ボタン
 # ------------------------
+st.write("---")
 if st.button("会話をまとめる"):
     if st.session_state["discussion"]:
         summary = generate_summary(st.session_state["discussion"])
@@ -183,48 +249,58 @@ if st.button("会話をまとめる"):
         st.warning("まずは会話を開始してください。")
 
 # ------------------------
-# 固定フッター（入力エリア）の配置
+# 入力フォーム
 # ------------------------
-with st.container():
-    st.markdown('<div class="fixed-footer">', unsafe_allow_html=True)
-    with st.form("chat_form", clear_on_submit=True):
-        user_input = st.text_area("新たな発言を入力してください", placeholder="ここに入力", height=100, key="user_input")
-        # 2つのボタンを横並びで配置
-        col1, col2 = st.columns(2)
-        with col1:
-            send_button = st.form_submit_button("送信")
-        with col2:
-            continue_button = st.form_submit_button("続きを話す")
-    st.markdown('</div>', unsafe_allow_html=True)
+st.write("---")
+st.markdown('<div class="fixed-footer">', unsafe_allow_html=True)
+with st.form("chat_form", clear_on_submit=True):
+    user_input = st.text_area("新たな発言を入力してください", placeholder="ここに入力", height=80, key="user_input")
+    col1, col2 = st.columns(2)
+    with col1:
+        send_button = st.form_submit_button("送信")
+    with col2:
+        continue_button = st.form_submit_button("続きを話す")
+st.markdown('</div>', unsafe_allow_html=True)
 
-    # 送信ボタンが押された場合の処理
-    if send_button:
-        if user_input.strip():
-            if not st.session_state["discussion"]:
-                persona_params = adjust_parameters(user_input)
-                discussion = generate_discussion(user_input, persona_params)
-                st.session_state["discussion"] = discussion
-            else:
-                new_discussion = continue_discussion(user_input, st.session_state["discussion"])
-                st.session_state["discussion"] += "\n" + new_discussion
+# 送信ボタンが押されたとき
+if send_button:
+    if user_input.strip():
+        # 初回会話かどうかで処理分岐
+        if not st.session_state["discussion"]:
+            # 新規会話を開始
+            persona_params = adjust_parameters(user_input)
+            discussion = generate_discussion(user_input, persona_params)
+            st.session_state["discussion"] = discussion
         else:
-            st.warning("発言を入力してください。")
-    
-    # 続きを話すボタンが押された場合の処理
-    if continue_button:
-        if st.session_state["discussion"]:
-            default_input = "続きをお願いします。"
-            new_discussion = continue_discussion(default_input, st.session_state["discussion"])
+            # 既存会話を続ける
+            new_discussion = continue_discussion(user_input, st.session_state["discussion"])
+            # 改行で繋げて追記
             st.session_state["discussion"] += "\n" + new_discussion
-        else:
-            st.warning("まずは会話を開始してください。")
+    else:
+        st.warning("発言を入力してください。")
+
+# 続きを話すボタンが押されたとき
+if continue_button:
+    if st.session_state["discussion"]:
+        # "続きをお願いします" という追加発言を送って継続
+        default_input = "続きをお願いします。"
+        new_discussion = continue_discussion(default_input, st.session_state["discussion"])
+        st.session_state["discussion"] += "\n" + new_discussion
+    else:
+        st.warning("まずは会話を開始してください。")
 
 # ------------------------
-# 会話ウィンドウの表示（常に表示、会話内容がない場合はプレースホルダー表示）
+# 会話ウィンドウの表示
 # ------------------------
-st.markdown('<div class="conversation">', unsafe_allow_html=True)
+st.write("---")
+st.markdown('<div class="chat-container">', unsafe_allow_html=True)
 if st.session_state["discussion"]:
     display_line_style(st.session_state["discussion"])
 else:
     st.markdown("<p style='color: gray;'>ここに会話が表示されます。</p>", unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
+
+# まとめがある場合も下部に表示（任意）
+if st.session_state["summary"]:
+    st.markdown("### まとめ回答")
+    st.write(st.session_state["summary"])
