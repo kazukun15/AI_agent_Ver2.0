@@ -9,3 +9,4 @@ requests>=2.25.0
 # (必要に応じて)
 # python-dotenv を利用する場合は、環境変数の管理に使用できます。
 # python-dotenv>=0.19.0
+streamlit-chat
