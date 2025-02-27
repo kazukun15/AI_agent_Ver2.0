@@ -61,18 +61,18 @@ NAMES = [YUKARI_NAME, SHINYA_NAME, MINORU_NAME]
 # セッション初期化（チャットログのみ）
 # ------------------------
 if "chat_log" not in st.session_state:
-    st.session_state["chat_log"] = []
+    st.session_state.chat_log = []
 
 # ------------------------
 # アイコン画像の読み込み
 # ------------------------
-# ※メインファイルが AI_agent_V3.0 内にある場合、パスは "avatars/xxx.png" としてください。
+# メインファイルが AI_agent_Ver2.0 内にある前提。画像は AI_agent_Ver2.0/avatars/ に配置。
 try:
-    img_user = Image.open("avatars/user.png")
-    img_yukari = Image.open("avatars/yukari.png")
-    img_shinya = Image.open("avatars/shinya.png")
-    img_minoru = Image.open("avatars/minoru.png")
-    img_newchar = Image.open("avatars/new_character.png")
+    img_user = Image.open("AI_agent_Ver2.0/avatars/user.png")
+    img_yukari = Image.open("AI_agent_Ver2.0/avatars/yukari.png")
+    img_shinya = Image.open("AI_agent_Ver2.0/avatars/shinya.png")
+    img_minoru = Image.open("AI_agent_Ver2.0/avatars/minoru.png")
+    img_newchar = Image.open("AI_agent_Ver2.0/avatars/new_character.png")
 except Exception as e:
     st.error(f"画像読み込みエラー: {e}")
     img_user = "👤"
@@ -243,7 +243,7 @@ with st.container():
     if send_button:
         if user_input.strip():
             st.session_state.chat_log.append({"sender": "user", "message": user_input})
-            if len(st.session_state.chat_log()) == 1:
+            if len(st.session_state.chat_log) == 1:
                 persona_params = adjust_parameters(user_input)
                 discussion = generate_discussion(user_input, persona_params)
             else:
@@ -276,7 +276,7 @@ with st.container():
                     st.session_state.chat_log.append({"sender": sender, "message": message_text})
         else:
             st.warning("まずは会話を開始してください。")
-            
+
 # ------------------------
 # 会話ウィンドウの表示
 # ------------------------
