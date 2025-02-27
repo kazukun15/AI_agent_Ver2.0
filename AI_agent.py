@@ -128,8 +128,10 @@ def call_gemini_api(prompt: str) -> str:
         response = requests.post(url, json=payload, headers=headers)
     except Exception as e:
         return f"エラー: リクエスト送信時に例外が発生しました -> {str(e)}"
+
     if response.status_code != 200:
         return f"エラー: ステータスコード {response.status_code} -> {response.text}"
+
     try:
         rjson = response.json()
         candidates = rjson.get("candidates", [])
@@ -150,13 +152,17 @@ def call_gemini_api(prompt: str) -> str:
         return f"エラー: レスポンス解析に失敗しました -> {str(e)}"
 
 def generate_discussion(question: str, persona_params: dict) -> str:
+    """
+    初回会話用プロンプト生成
+    """
     current_user = st.session_state.get("user_name", "ユーザー")
     prompt = f"【{current_user}さんの質問】\n{question}\n\n"
     for name, params in persona_params.items():
         prompt += f"{name}は【{params['style']}な視点】で、{params['detail']}。\n"
+    # ここで、半角コロン+改行形式を徹底して伝える
     prompt += (
         "\n上記情報を元に、3人が友達同士のように自然な会話をしてください。\n"
-        "出力形式は以下の通りです。\n"
+        "出力形式は以下の通り（必ず名前の後は半角コロン+スペースを使うこと）。\n"
         "ゆかり: 発言内容\n"
         "しんや: 発言内容\n"
         "みのる: 発言内容\n"
@@ -165,11 +171,14 @@ def generate_discussion(question: str, persona_params: dict) -> str:
     return call_gemini_api(prompt)
 
 def continue_discussion(additional_input: str, current_discussion: str) -> str:
+    """
+    続き会話用プロンプト生成
+    """
     prompt = (
         "これまでの会話:\n" + current_discussion + "\n\n" +
         "ユーザーの追加発言: " + additional_input + "\n\n" +
         "上記を踏まえ、3人がさらに自然な会話を続けてください。\n"
-        "出力形式は以下の通りです。\n"
+        "出力形式は以下の通り（必ず名前の後は半角コロン+スペースを使うこと）。\n"
         "ゆかり: 発言内容\n"
         "しんや: 発言内容\n"
         "みのる: 発言内容\n"
@@ -188,14 +197,13 @@ def generate_summary(discussion: str) -> str:
 def display_line_style(text: str):
     """
     各発言をキャラクターごとの背景色と文字色で吹き出し形式に表示する。
-    ※最新の発言が「一番下」に来るようにします。
+    上から古い発言、下が最新発言。
     """
     lines = text.split("\n")
     # 空行を除外
     lines = [line.strip() for line in lines if line.strip()]
 
-    # 発言順をそのまま自然な順序にする (上から古い発言、下が最新発言)
-    # ※もし最新を上にしたければ reversed(lines) にしてください
+    # 色のマッピング
     color_map = {
         "ゆかり": {"bg": "#FFD1DC", "color": "#000"},
         "しんや": {"bg": "#D1E8FF", "color": "#000"},
@@ -207,6 +215,7 @@ def display_line_style(text: str):
             name = matched.group(1)
             message = matched.group(2)
         else:
+            # キャラ名がマッチしなかった行も一応表示
             name = ""
             message = line
 
@@ -232,12 +241,11 @@ def display_line_style(text: str):
 # ------------------------
 if "discussion" not in st.session_state:
     st.session_state["discussion"] = ""
-
 if "summary" not in st.session_state:
     st.session_state["summary"] = ""
 
 # ------------------------
-# 「会話まとめ」ボタン
+# 「会話をまとめる」ボタン
 # ------------------------
 st.write("---")
 if st.button("会話をまとめる"):
@@ -262,7 +270,9 @@ with st.form("chat_form", clear_on_submit=True):
         continue_button = st.form_submit_button("続きを話す")
 st.markdown('</div>', unsafe_allow_html=True)
 
+# ------------------------
 # 送信ボタンが押されたとき
+# ------------------------
 if send_button:
     if user_input.strip():
         # 初回会話かどうかで処理分岐
@@ -270,21 +280,47 @@ if send_button:
             # 新規会話を開始
             persona_params = adjust_parameters(user_input)
             discussion = generate_discussion(user_input, persona_params)
+
+            # デバッグ出力（初回応答）
+            st.write("**[DEBUG] 初回AI応答**")
+            st.write(discussion)
+
             st.session_state["discussion"] = discussion
         else:
             # 既存会話を続ける
             new_discussion = continue_discussion(user_input, st.session_state["discussion"])
+
+            # デバッグ出力（2回目以降の応答）
+            st.write("**[DEBUG] 追加発言に対するAI応答**")
+            st.write(new_discussion)
+
+            if not new_discussion.strip():
+                st.warning("AI応答が空でした。")
+            elif "エラー:" in new_discussion or "回答が見つかりません" in new_discussion:
+                st.warning("AIがエラーまたは無回答を返しました:\n" + new_discussion)
+
             # 改行で繋げて追記
             st.session_state["discussion"] += "\n" + new_discussion
     else:
         st.warning("発言を入力してください。")
 
+# ------------------------
 # 続きを話すボタンが押されたとき
+# ------------------------
 if continue_button:
     if st.session_state["discussion"]:
         # "続きをお願いします" という追加発言を送って継続
         default_input = "続きをお願いします。"
         new_discussion = continue_discussion(default_input, st.session_state["discussion"])
+
+        st.write("**[DEBUG] '続きをお願いします' に対するAI応答**")
+        st.write(new_discussion)
+
+        if not new_discussion.strip():
+            st.warning("AI応答が空でした。")
+        elif "エラー:" in new_discussion or "回答が見つかりません" in new_discussion:
+            st.warning("AIがエラーまたは無回答を返しました:\n" + new_discussion)
+
         st.session_state["discussion"] += "\n" + new_discussion
     else:
         st.warning("まずは会話を開始してください。")
@@ -300,7 +336,9 @@ else:
     st.markdown("<p style='color: gray;'>ここに会話が表示されます。</p>", unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# まとめがある場合も下部に表示（任意）
+# ------------------------
+# まとめ表示（ある場合のみ）
+# ------------------------
 if st.session_state["summary"]:
     st.markdown("### まとめ回答")
     st.write(st.session_state["summary"])
