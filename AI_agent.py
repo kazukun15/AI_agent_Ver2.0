@@ -11,23 +11,69 @@ st.set_page_config(page_title="ぼくのともだち", layout="wide")
 st.title("ぼくのともだち V2.2.1")
 
 # ------------------------
-# ユーザーの名前入力（画面上部に表示）
+# 背景・共通スタイルの設定
+# ------------------------
+st.markdown(
+    """
+    <style>
+    body {
+        background-color: #e9edf5;
+        font-family: 'Helvetica Neue', sans-serif;
+    }
+    .chat-container {
+        max-height: 600px;
+        overflow-y: auto;
+        padding: 15px;
+        border: 1px solid #ccc;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        background-color: #ffffff;
+    }
+    .chat-message {
+        margin-bottom: 10px;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# ------------------------
+# ユーザーの名前入力（上部）
 # ------------------------
 user_name = st.text_input("あなたの名前を入力してください", value="ユーザー", key="user_name")
 
 # ------------------------
-# 定数／設定
+# キャラクター定義
+# ------------------------
+USER_NAME = "user"
+ASSISTANT_NAME = "assistant"
+MORIAGE_YAKU_NAME = "moriage_yaku"
+
+# ------------------------
+# 定数／設定（APIキーなど）
 # ------------------------
 API_KEY = st.secrets["general"]["api_key"]
-MODEL_NAME = "gemini-2.0-flash-001"  # 必要に応じて変更
+MODEL_NAME = "gemini-2.0-flash-001"  # 適宜変更
 NAMES = ["ゆかり", "しんや", "みのる"]
+
+# ------------------------
+# セッション初期化
+# ------------------------
+if "chat_log" not in st.session_state:
+    st.session_state.chat_log = []
+
+# ------------------------
+# アイコン（ここでは moriage_yaku のみ絵文字を利用）
+# ------------------------
+avator_img_dict = {
+    MORIAGE_YAKU_NAME: "🎉",
+}
 
 # ------------------------
 # 関数定義
 # ------------------------
 
 def analyze_question(question: str) -> int:
-    """質問文から感情キーワードと論理キーワードを解析し、スコアを返す"""
     score = 0
     keywords_emotional = ["困った", "悩み", "苦しい", "辛い"]
     keywords_logical = ["理由", "原因", "仕組み", "方法"]
@@ -40,7 +86,6 @@ def analyze_question(question: str) -> int:
     return score
 
 def adjust_parameters(question: str) -> dict:
-    """質問に応じた各キャラクターのプロンプトパラメータを生成する"""
     score = analyze_question(question)
     params = {}
     params["ゆかり"] = {"style": "明るくはっちゃけた", "detail": "楽しい雰囲気で元気な回答"}
@@ -53,7 +98,6 @@ def adjust_parameters(question: str) -> dict:
     return params
 
 def remove_json_artifacts(text: str) -> str:
-    """不要なJSON形式のアーティファクトを除去する"""
     if not isinstance(text, str):
         text = str(text) if text else ""
     pattern = r"'parts': \[\{'text':.*?\}\], 'role': 'model'"
@@ -61,7 +105,6 @@ def remove_json_artifacts(text: str) -> str:
     return cleaned.strip()
 
 def call_gemini_api(prompt: str) -> str:
-    """Gemini API を呼び出して生成テキストを返す"""
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL_NAME}:generateContent?key={API_KEY}"
     payload = {"contents": [{"parts": [{"text": prompt}]}]}
     headers = {"Content-Type": "application/json"}
@@ -91,7 +134,6 @@ def call_gemini_api(prompt: str) -> str:
         return f"エラー: レスポンス解析に失敗しました -> {str(e)}"
 
 def generate_discussion(question: str, persona_params: dict) -> str:
-    """最初の会話生成。ユーザーの質問と各キャラクターのパラメータを元にプロンプトを構築"""
     current_user = st.session_state.get("user_name", "ユーザー")
     prompt = f"【{current_user}さんの質問】\n{question}\n\n"
     for name, params in persona_params.items():
@@ -111,7 +153,6 @@ def generate_discussion(question: str, persona_params: dict) -> str:
     return call_gemini_api(prompt)
 
 def continue_discussion(additional_input: str, current_discussion: str) -> str:
-    """会話の続き生成。既存の会話と追加発言を元にプロンプトを構築"""
     prompt = (
         "これまでの会話:\n" + current_discussion + "\n\n" +
         "ユーザーの追加発言: " + additional_input + "\n\n" +
@@ -126,16 +167,14 @@ def continue_discussion(additional_input: str, current_discussion: str) -> str:
     return call_gemini_api(prompt)
 
 def generate_summary(discussion: str) -> str:
-    """これまでの会話を要約するプロンプトを生成してAPIを呼び出す"""
     prompt = (
         "以下は4人の会話内容です。\n" + discussion + "\n\n" +
-        "この会話を踏まえて、質問に対するまとめ回答を生成してください。\n"
+        "この会話を踏まえ、質問に対するまとめ回答を生成してください。\n"
         "自然な日本語文で出力し、余計なJSON形式は不要です。"
     )
     return call_gemini_api(prompt)
 
 def generate_new_character() -> tuple:
-    """新キャラクターの名前と性格をランダムで生成する。"""
     candidates = [
         ("たけし", "冷静沈着で皮肉屋、どこか孤高な存在"),
         ("さとる", "率直かつ辛辣で、常に現実を鋭く指摘する"),
@@ -147,37 +186,37 @@ def generate_new_character() -> tuple:
 
 def display_chat_log(chat_log: list):
     """
-    chat_log の各メッセージをLINE風のバブルチャット形式で表示する。
-    ユーザーの発言は右寄せ、友達の発言は左寄せで表示し、テキストは自動で折り返されます。
-    最新のメッセージが上部に表示されるよう逆順にします。
+    chat_log の各メッセージを、LINE風のチャットバブル形式で表示する。
+    ユーザーの発言は右寄せ、友達の発言は左寄せで表示され、テキストは自動で折り返されます。
+    最新のメッセージは入力バーの直上に表示されるよう、チャットログは逆順に表示します。
     """
-    # streamlit-chat の message() 関数を利用
+    # streamlit-chat の message() 関数を利用して表示
     from streamlit_chat import message as st_message
     for msg in reversed(chat_log):
         sender = msg["sender"]
         text = msg["message"]
-        if sender == "ユーザー":
+        if sender == "user":
             st_message(text, is_user=True)
         else:
             st_message(f"{sender}: {text}", is_user=False)
 
 # ------------------------
-# セッションステートの初期化
+# 初回会話の自動生成（チャットログが空の場合）
 # ------------------------
-if "chat_log" not in st.session_state:
-    st.session_state["chat_log"] = []
-
-# ------------------------
-# 会話まとめボタン
-# ------------------------
-if st.button("会話をまとめる"):
-    if st.session_state["chat_log"]:
-        all_discussion = "\n".join([f'{msg["sender"]}: {msg["message"]}' for msg in st.session_state["chat_log"]])
-        summary = generate_summary(all_discussion)
-        st.session_state["summary"] = summary
-        st.markdown("### まとめ回答\n" + "**まとめ:** " + summary)
-    else:
-        st.warning("まずは会話を開始してください。")
+if not st.session_state.get("initialized", False):
+    st.session_state["initialized"] = True
+    if len(st.session_state["chat_log"]) == 0:
+        first_user_msg = "はじめまして。"
+        st.session_state["chat_log"].append({"sender": "user", "message": first_user_msg})
+        persona_params = adjust_parameters(first_user_msg)
+        discussion = generate_discussion(first_user_msg, persona_params)
+        for line in discussion.split("\n"):
+            line = line.strip()
+            if line:
+                parts = line.split(":", 1)
+                sender = parts[0]
+                message_text = parts[1].strip() if len(parts) > 1 else ""
+                st.session_state["chat_log"].append({"sender": sender, "message": message_text})
 
 # ------------------------
 # 固定フッター（入力エリア）の配置
@@ -198,7 +237,7 @@ with st.container():
     # 送信ボタンの処理
     if send_button:
         if user_input.strip():
-            st.session_state["chat_log"].append({"sender": "ユーザー", "message": user_input})
+            st.session_state["chat_log"].append({"sender": "user", "message": user_input})
             if len(st.session_state["chat_log"]) == 1:
                 persona_params = adjust_parameters(user_input)
                 discussion = generate_discussion(user_input, persona_params)
@@ -211,7 +250,7 @@ with st.container():
                         st.session_state["chat_log"].append({"sender": sender, "message": message_text})
             else:
                 new_discussion = continue_discussion(user_input, "\n".join(
-                    [f'{msg["sender"]}: {msg["message"]}' for msg in st.session_state["chat_log"] if msg["sender"] in NAMES or msg["sender"] == "新キャラクター"]
+                    [f'{chat["sender"]}: {chat["message"]}' for chat in st.session_state["chat_log"] if chat["sender"] in NAMES or chat["sender"] == "新キャラクター"]
                 ))
                 for line in new_discussion.split("\n"):
                     line = line.strip()
@@ -228,7 +267,7 @@ with st.container():
         if st.session_state["chat_log"]:
             default_input = "続きをお願いします。"
             new_discussion = continue_discussion(default_input, "\n".join(
-                [f'{msg["sender"]}: {msg["message"]}' for msg in st.session_state["chat_log"] if msg["sender"] in NAMES or msg["sender"] == "新キャラクター"]
+                [f'{chat["sender"]}: {chat["message"]}' for chat in st.session_state["chat_log"] if chat["sender"] in NAMES or chat["sender"] == "新キャラクター"]
             ))
             for line in new_discussion.split("\n"):
                 line = line.strip()
@@ -239,7 +278,7 @@ with st.container():
                     st.session_state["chat_log"].append({"sender": sender, "message": message_text})
         else:
             st.warning("まずは会話を開始してください。")
-
+            
 # ------------------------
 # 会話ウィンドウの表示
 # ------------------------
