@@ -2,6 +2,7 @@ import streamlit as st
 import requests
 import re
 import random
+from PIL import Image
 from streamlit_chat import message  # streamlit-chat のメッセージ表示用関数
 
 # ------------------------
@@ -23,14 +24,11 @@ st.markdown(
     .chat-container {
         max-height: 600px;
         overflow-y: auto;
-        padding: 15px;
-        border: 1px solid #ccc;
-        border-radius: 10px;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
         margin-bottom: 20px;
-        background-color: #ffffff;
-    }
-    .chat-message {
-        margin-bottom: 10px;
+        background-color: #ffffffaa;
     }
     </style>
     """,
@@ -47,32 +45,54 @@ user_name = st.text_input("あなたの名前を入力してください", value
 # ------------------------
 USER_NAME = "user"
 ASSISTANT_NAME = "assistant"
-MORIAGE_YAKU_NAME = "moriage_yaku"
+YUKARI_NAME = "ゆかり"
+SHINYA_NAME = "しんや"
+MINORU_NAME = "みのる"
+NEW_CHAR_NAME = "新キャラクター"
 
 # ------------------------
 # 定数／設定（APIキーなど）
 # ------------------------
 API_KEY = st.secrets["general"]["api_key"]
 MODEL_NAME = "gemini-2.0-flash-001"  # 適宜変更
-NAMES = ["ゆかり", "しんや", "みのる"]
+NAMES = [YUKARI_NAME, SHINYA_NAME, MINORU_NAME]
 
 # ------------------------
-# セッション初期化
+# セッション初期化（チャットログのみ）
 # ------------------------
 if "chat_log" not in st.session_state:
-    st.session_state.chat_log = []
+    st.session_state["chat_log"] = []
 
 # ------------------------
-# アイコン（ここでは moriage_yaku のみ絵文字を利用）
+# アイコン画像の読み込み
 # ------------------------
-avator_img_dict = {
-    MORIAGE_YAKU_NAME: "🎉",
+# ※メインファイルが AI_agent_V3.0 内にある場合、パスは "avatars/xxx.png" としてください。
+try:
+    img_user = Image.open("avatars/user.png")
+    img_yukari = Image.open("avatars/yukari.png")
+    img_shinya = Image.open("avatars/shinya.png")
+    img_minoru = Image.open("avatars/minoru.png")
+    img_newchar = Image.open("avatars/new_character.png")
+except Exception as e:
+    st.error(f"画像読み込みエラー: {e}")
+    img_user = "👤"
+    img_yukari = "🌸"
+    img_shinya = "🌊"
+    img_minoru = "🍀"
+    img_newchar = "⭐"
+
+avatar_img_dict = {
+    USER_NAME: img_user,
+    YUKARI_NAME: img_yukari,
+    SHINYA_NAME: img_shinya,
+    MINORU_NAME: img_minoru,
+    NEW_CHAR_NAME: img_newchar,
+    ASSISTANT_NAME: "🤖",  # 絵文字で代用
 }
 
 # ------------------------
-# 関数定義
+# 会話生成関連関数
 # ------------------------
-
 def analyze_question(question: str) -> int:
     score = 0
     keywords_emotional = ["困った", "悩み", "苦しい", "辛い"]
@@ -88,13 +108,13 @@ def analyze_question(question: str) -> int:
 def adjust_parameters(question: str) -> dict:
     score = analyze_question(question)
     params = {}
-    params["ゆかり"] = {"style": "明るくはっちゃけた", "detail": "楽しい雰囲気で元気な回答"}
+    params[YUKARI_NAME] = {"style": "明るくはっちゃけた", "detail": "楽しい雰囲気で元気な回答"}
     if score > 0:
-        params["しんや"] = {"style": "共感的", "detail": "心情を重視した解説"}
-        params["みのる"] = {"style": "柔軟", "detail": "状況に合わせた多面的な視点"}
+        params[SHINYA_NAME] = {"style": "共感的", "detail": "心情を重視した解説"}
+        params[MINORU_NAME] = {"style": "柔軟", "detail": "状況に合わせた多面的な視点"}
     else:
-        params["しんや"] = {"style": "分析的", "detail": "データや事実を踏まえた説明"}
-        params["みのる"] = {"style": "客観的", "detail": "中立的な視点からの考察"}
+        params[SHINYA_NAME] = {"style": "分析的", "detail": "データや事実を踏まえた説明"}
+        params[MINORU_NAME] = {"style": "客観的", "detail": "中立的な視点からの考察"}
     return params
 
 def remove_json_artifacts(text: str) -> str:
@@ -138,7 +158,6 @@ def generate_discussion(question: str, persona_params: dict) -> str:
     prompt = f"【{current_user}さんの質問】\n{question}\n\n"
     for name, params in persona_params.items():
         prompt += f"{name}は【{params['style']}な視点】で、{params['detail']}。\n"
-    # 新キャラクターの生成
     new_name, new_personality = generate_new_character()
     prompt += f"さらに、新キャラクターとして {new_name} は【{new_personality}】な性格です。彼/彼女も会話に加わってください。\n"
     prompt += (
@@ -188,9 +207,8 @@ def display_chat_log(chat_log: list):
     """
     chat_log の各メッセージを、LINE風のチャットバブル形式で表示する。
     ユーザーの発言は右寄せ、友達の発言は左寄せで表示され、テキストは自動で折り返されます。
-    最新のメッセージは入力バーの直上に表示されるよう、チャットログは逆順に表示します。
+    最新のメッセージが入力バーの直上に表示されるよう、チャットログは逆順に表示します。
     """
-    # streamlit-chat の message() 関数を利用して表示
     from streamlit_chat import message as st_message
     for msg in reversed(chat_log):
         sender = msg["sender"]
@@ -201,30 +219,17 @@ def display_chat_log(chat_log: list):
             st_message(f"{sender}: {text}", is_user=False)
 
 # ------------------------
-# 初回会話の自動生成（チャットログが空の場合）
+# 初回会話の自動生成は削除（ユーザーが発言したときのみ応答）
 # ------------------------
-if not st.session_state.get("initialized", False):
-    st.session_state["initialized"] = True
-    if len(st.session_state["chat_log"]) == 0:
-        first_user_msg = "はじめまして。"
-        st.session_state["chat_log"].append({"sender": "user", "message": first_user_msg})
-        persona_params = adjust_parameters(first_user_msg)
-        discussion = generate_discussion(first_user_msg, persona_params)
-        for line in discussion.split("\n"):
-            line = line.strip()
-            if line:
-                parts = line.split(":", 1)
-                sender = parts[0]
-                message_text = parts[1].strip() if len(parts) > 1 else ""
-                st.session_state["chat_log"].append({"sender": sender, "message": message_text})
 
 # ------------------------
 # 固定フッター（入力エリア）の配置
 # ------------------------
 with st.container():
     st.markdown(
-        '<div style="position: fixed; bottom: 0; width: 100%; background: #FFF; padding: 10px; box-shadow: 0 -2px 5px rgba(0,0,0,0.1);">'
-        , unsafe_allow_html=True)
+        '<div style="position: fixed; bottom: 0; width: 100%; background: #FFF; padding: 10px; box-shadow: 0 -2px 5px rgba(0,0,0,0.1);">',
+        unsafe_allow_html=True,
+    )
     with st.form("chat_form", clear_on_submit=True):
         user_input = st.text_area("新たな発言を入力してください", placeholder="ここに入力", height=100, key="user_input")
         col1, col2 = st.columns(2)
@@ -232,42 +237,35 @@ with st.container():
             send_button = st.form_submit_button("送信")
         with col2:
             continue_button = st.form_submit_button("続きを話す")
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
     
     # 送信ボタンの処理
     if send_button:
         if user_input.strip():
-            st.session_state["chat_log"].append({"sender": "user", "message": user_input})
-            if len(st.session_state["chat_log"]) == 1:
+            st.session_state.chat_log.append({"sender": "user", "message": user_input})
+            if len(st.session_state.chat_log()) == 1:
                 persona_params = adjust_parameters(user_input)
                 discussion = generate_discussion(user_input, persona_params)
-                for line in discussion.split("\n"):
-                    line = line.strip()
-                    if line:
-                        parts = line.split(":", 1)
-                        sender = parts[0]
-                        message_text = parts[1].strip() if len(parts) > 1 else ""
-                        st.session_state["chat_log"].append({"sender": sender, "message": message_text})
             else:
-                new_discussion = continue_discussion(user_input, "\n".join(
-                    [f'{chat["sender"]}: {chat["message"]}' for chat in st.session_state["chat_log"] if chat["sender"] in NAMES or chat["sender"] == "新キャラクター"]
+                discussion = continue_discussion(user_input, "\n".join(
+                    [f'{chat["sender"]}: {chat["message"]}' for chat in st.session_state.chat_log if chat["sender"] in NAMES or chat["sender"] == NEW_CHAR_NAME]
                 ))
-                for line in new_discussion.split("\n"):
-                    line = line.strip()
-                    if line:
-                        parts = line.split(":", 1)
-                        sender = parts[0]
-                        message_text = parts[1].strip() if len(parts) > 1 else ""
-                        st.session_state["chat_log"].append({"sender": sender, "message": message_text})
+            for line in discussion.split("\n"):
+                line = line.strip()
+                if line:
+                    parts = line.split(":", 1)
+                    sender = parts[0]
+                    message_text = parts[1].strip() if len(parts) > 1 else ""
+                    st.session_state.chat_log.append({"sender": sender, "message": message_text})
         else:
             st.warning("発言を入力してください。")
     
     # 続きを話すボタンの処理
     if continue_button:
-        if st.session_state["chat_log"]:
+        if st.session_state.chat_log:
             default_input = "続きをお願いします。"
             new_discussion = continue_discussion(default_input, "\n".join(
-                [f'{chat["sender"]}: {chat["message"]}' for chat in st.session_state["chat_log"] if chat["sender"] in NAMES or chat["sender"] == "新キャラクター"]
+                [f'{chat["sender"]}: {chat["message"]}' for chat in st.session_state.chat_log if chat["sender"] in NAMES or chat["sender"] == NEW_CHAR_NAME]
             ))
             for line in new_discussion.split("\n"):
                 line = line.strip()
@@ -275,7 +273,7 @@ with st.container():
                     parts = line.split(":", 1)
                     sender = parts[0]
                     message_text = parts[1].strip() if len(parts) > 1 else ""
-                    st.session_state["chat_log"].append({"sender": sender, "message": message_text})
+                    st.session_state.chat_log.append({"sender": sender, "message": message_text})
         else:
             st.warning("まずは会話を開始してください。")
             
@@ -283,7 +281,7 @@ with st.container():
 # 会話ウィンドウの表示
 # ------------------------
 st.header("会話履歴")
-if st.session_state["chat_log"]:
-    display_chat_log(st.session_state["chat_log"])
+if st.session_state.chat_log:
+    display_chat_log(st.session_state.chat_log)
 else:
     st.markdown("<p style='color: gray;'>ここに会話が表示されます。</p>", unsafe_allow_html=True)
