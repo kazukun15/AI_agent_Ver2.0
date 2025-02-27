@@ -68,11 +68,11 @@ if "chat_log" not in st.session_state:
 # ------------------------
 # メインファイルが AI_agent_Ver2.0 内にある前提。画像は AI_agent_Ver2.0/avatars/ に配置。
 try:
-    img_user = Image.open("/avatars/user.png")
-    img_yukari = Image.open("/avatars/yukari.png")
-    img_shinya = Image.open("/avatars/shinya.png")
-    img_minoru = Image.open("/avatars/minoru.png")
-    img_newchar = Image.open("/avatars/new_character.png")
+    img_user = Image.open("avatars/user.png")
+    img_yukari = Image.open("avatars/yukari.png")
+    img_shinya = Image.open("avatars/shinya.png")
+    img_minoru = Image.open("avatars/minoru.png")
+    img_newchar = Image.open("avatars/new_character.png")
 except Exception as e:
     st.error(f"画像読み込みエラー: {e}")
     img_user = "👤"
