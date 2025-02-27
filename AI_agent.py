@@ -9,7 +9,7 @@ from streamlit_chat import message  # streamlit-chat のメッセージ表示用
 # ページ設定
 # ------------------------
 st.set_page_config(page_title="ぼくのともだち", layout="wide")
-st.title("ぼくのともだち V2.2.1")
+st.title("ぼくのともだち V3.0")
 
 # ------------------------
 # 背景・共通スタイルの設定
@@ -66,7 +66,6 @@ if "chat_log" not in st.session_state:
 # ------------------------
 # アイコン画像の読み込み
 # ------------------------
-# ※メインファイルが AI_agent_V3.0 内にある場合、パスは "avatars/xxx.png" としてください。
 try:
     img_user = Image.open("avatars/user.png")
     img_yukari = Image.open("avatars/yukari.png")
@@ -243,7 +242,7 @@ with st.container():
     if send_button:
         if user_input.strip():
             st.session_state.chat_log.append({"sender": "user", "message": user_input})
-            if len(st.session_state.chat_log()) == 1:
+            if len(st.session_state.chat_log) == 1:
                 persona_params = adjust_parameters(user_input)
                 discussion = generate_discussion(user_input, persona_params)
             else:
