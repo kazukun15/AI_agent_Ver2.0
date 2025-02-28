@@ -6,25 +6,15 @@ import json
 from PIL import Image
 from streamlit_chat import message  # streamlit-chat のメッセージ表示用関数
 
-# --- テーマ設定の読み込み（オプション） ---
-try:
-    try:
-        import tomllib  # Python 3.11以降
-    except ImportError:
-        import toml as tomllib
-    with open(".streamlit/config.toml", "rb") as f:
-        config = tomllib.load(f)
-    theme_config = config.get("theme", {})
-    st.write("Theme configuration loaded:", theme_config)  # 必要に応じて表示
-except Exception as e:
-    st.write("No theme configuration found or error reading .streamlit/config.toml.")
-    theme_config = {}
-
-# --- ページ設定 ---
+# ------------------------
+# ページ設定
+# ------------------------
 st.set_page_config(page_title="ぼくのともだち", layout="wide")
-st.title("ぼくのともだち V2.2.1")
+st.title("ぼくのともだち V3.0")
 
-# --- 背景・共通スタイルの設定 ---
+# ------------------------
+# 背景・共通スタイルの設定
+# ------------------------
 st.markdown(
     """
     <style>
@@ -41,7 +31,7 @@ st.markdown(
         margin-bottom: 20px;
         background-color: #ffffffaa;
     }
-    /* バブルチャット用スタイル（薄緑） */
+    /* バブルチャット用のスタイル */
     .chat-bubble {
         background-color: #d4f7dc;
         border-radius: 10px;
@@ -61,10 +51,14 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# --- ユーザーの名前入力 ---
+# ------------------------
+# ユーザーの名前入力（上部）
+# ------------------------
 user_name = st.text_input("あなたの名前を入力してください", value="ユーザー", key="user_name")
 
-# --- キャラクター定義 ---
+# ------------------------
+# キャラクター定義
+# ------------------------
 USER_NAME = "user"
 ASSISTANT_NAME = "assistant"
 YUKARI_NAME = "ゆかり"
@@ -72,17 +66,23 @@ SHINYA_NAME = "しんや"
 MINORU_NAME = "みのる"
 NEW_CHAR_NAME = "新キャラクター"
 
-# --- 定数／設定（APIキーなど） ---
+# ------------------------
+# 定数／設定（APIキーなど）
+# ------------------------
 API_KEY = st.secrets["general"]["api_key"]
-MODEL_NAME = "gemini-2.0-flash-001"  # 必要に応じて変更
+MODEL_NAME = "gemini-2.0-flash-001"  # 適宜変更
 NAMES = [YUKARI_NAME, SHINYA_NAME, MINORU_NAME]
-# ※新キャラクターは動的に決定
+# ※新キャラクターは動的に決定します
 
-# --- セッション初期化（チャット履歴） ---
+# ------------------------
+# セッション初期化（チャット履歴）
+# ------------------------
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# --- アイコン画像の読み込み（ファイルは AI_agent_Ver2.0/avatars/ に配置） ---
+# ------------------------
+# アイコン画像の読み込み（ファイルは AI_agent_Ver2.0/avatars/ に配置）
+# ------------------------
 try:
     img_user = Image.open("avatars/user.png")
     img_yukari = Image.open("avatars/yukari.png")
@@ -103,10 +103,12 @@ avatar_img_dict = {
     SHINYA_NAME: img_shinya,
     MINORU_NAME: img_minoru,
     NEW_CHAR_NAME: img_newchar,
-    ASSISTANT_NAME: "🤖",
+    ASSISTANT_NAME: "🤖",  # 絵文字で代用
 }
 
-# --- Gemini API 呼び出し関数（requests 使用） ---
+# ------------------------
+# Gemini API 呼び出し関数（requests を使用）
+# ------------------------
 def remove_json_artifacts(text: str) -> str:
     if not isinstance(text, str):
         text = str(text) if text else ""
@@ -143,7 +145,9 @@ def call_gemini_api(prompt: str) -> str:
     except Exception as e:
         return f"エラー: レスポンス解析に失敗しました -> {str(e)}"
 
-# --- 会話生成関連関数 ---
+# ------------------------
+# 会話生成関連関数
+# ------------------------
 def analyze_question(question: str) -> int:
     score = 0
     keywords_emotional = ["困った", "悩み", "苦しい", "辛い"]
@@ -225,6 +229,7 @@ for msg in st.session_state.messages:
     role = msg["role"]
     content = msg["content"]
     display_name = user_name if role == "user" else role
+    # ユーザーの発言は右寄せ、その他は左寄せ
     if role == "user":
         with st.chat_message(role, avatar=avatar_img_dict.get(USER_NAME)):
             st.markdown(
@@ -243,6 +248,7 @@ for msg in st.session_state.messages:
 # ------------------------
 user_input = st.chat_input("何か質問や話したいことがありますか？")
 if user_input:
+    # ユーザーの発言を右寄せで表示＆履歴に追加
     with st.chat_message("user", avatar=avatar_img_dict.get(USER_NAME)):
         st.markdown(
             f'<div style="text-align: right;"><div class="chat-bubble"><div class="chat-header">{user_name}</div>{user_input}</div></div>',
@@ -250,6 +256,7 @@ if user_input:
         )
     st.session_state.messages.append({"role": "user", "content": user_input})
     
+    # 会話生成
     if len(st.session_state.messages) == 1:
         persona_params = adjust_parameters(user_input)
         discussion = generate_discussion(user_input, persona_params)
@@ -261,6 +268,7 @@ if user_input:
         )
         discussion = continue_discussion(user_input, history)
     
+    # 生成された応答を解析して各行ごとに履歴に追加＆表示
     for line in discussion.split("\n"):
         line = line.strip()
         if line:
