@@ -7,20 +7,20 @@ from PIL import Image
 from streamlit_chat import message  # streamlit-chat のメッセージ表示用関数
 
 # ------------------------------------------------------------------
-# st.set_page_config() はストリームリットの最初のコマンドで呼び出す必要がある
+# 1. st.set_page_config() はストリームリットの最初のコマンドで呼び出す
 # ------------------------------------------------------------------
 st.set_page_config(page_title="ぼくのともだち", layout="wide")
 st.title("ぼくのともだち V3.0")
 
 # ------------------------------------------------------------------
-# .streamlit/config.toml のテーマ設定読み込み（出力は行わず、変数に格納）
+# 2. 同じディレクトリにある config.toml を読み込み
 # ------------------------------------------------------------------
 try:
     try:
         import tomllib  # Python 3.11以降
     except ImportError:
         import toml as tomllib
-    with open(".streamlit/config.toml", "rb") as f:
+    with open("config.toml", "rb") as f:
         config = tomllib.load(f)
     theme_config = config.get("theme", {})
     primaryColor = theme_config.get("primaryColor", "#729075")
@@ -29,6 +29,7 @@ try:
     textColor = theme_config.get("textColor", "#5e796a")
     font = theme_config.get("font", "monospace")
 except Exception as e:
+    # config.toml が存在しない、または読み込み失敗時はデフォルト値を使用
     primaryColor = "#729075"
     backgroundColor = "#f1ece3"
     secondaryBackgroundColor = "#fff8ef"
@@ -43,7 +44,7 @@ st.markdown(
     <style>
     body {{
         background-color: {backgroundColor};
-        font-family: 'Helvetica Neue', sans-serif;
+        font-family: {font}, sans-serif;
         color: {textColor};
     }}
     .chat-container {{
@@ -111,7 +112,7 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 
 # ------------------------
-# アイコン画像の読み込み（ファイルは AI_agent_Ver2.0/avatars/ に配置）
+# アイコン画像の読み込み
 # ------------------------
 try:
     img_user = Image.open("avatars/user.png")
