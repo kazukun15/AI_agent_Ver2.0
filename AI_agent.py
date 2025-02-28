@@ -7,32 +7,58 @@ from PIL import Image
 from streamlit_chat import message  # streamlit-chat のメッセージ表示用関数
 
 # ------------------------
+# テーマ設定の読み込み (.streamlit/config.toml)
+# ------------------------
+try:
+    try:
+        import tomllib  # Python 3.11以降の場合
+    except ImportError:
+        import toml as tomllib
+    with open(".streamlit/config.toml", "rb") as f:
+        config = tomllib.load(f)
+    theme_config = config.get("theme", {})
+    primaryColor = theme_config.get("primaryColor", "#729075")
+    backgroundColor = theme_config.get("backgroundColor", "#f1ece3")
+    secondaryBackgroundColor = theme_config.get("secondaryBackgroundColor", "#fff8ef")
+    textColor = theme_config.get("textColor", "#5e796a")
+    font = theme_config.get("font", "monospace")
+    st.write("Theme configuration loaded:", theme_config)
+except Exception as e:
+    st.write("No theme configuration found or error reading .streamlit/config.toml.", e)
+    primaryColor = "#729075"
+    backgroundColor = "#f1ece3"
+    secondaryBackgroundColor = "#fff8ef"
+    textColor = "#5e796a"
+    font = "monospace"
+
+# ------------------------
 # ページ設定
 # ------------------------
 st.set_page_config(page_title="ぼくのともだち", layout="wide")
 st.title("ぼくのともだち V3.0")
 
 # ------------------------
-# 背景・共通スタイルの設定
+# 背景・共通スタイルの設定（テーマ設定を反映）
 # ------------------------
 st.markdown(
-    """
+    f"""
     <style>
-    body {
-        background-color: #e9edf5;
+    body {{
+        background-color: {backgroundColor};
         font-family: 'Helvetica Neue', sans-serif;
-    }
-    .chat-container {
+        color: {textColor};
+    }}
+    .chat-container {{
         max-height: 600px;
         overflow-y: auto;
         padding: 10px;
         border: 1px solid #ddd;
         border-radius: 5px;
         margin-bottom: 20px;
-        background-color: #ffffffaa;
-    }
-    /* バブルチャット用のスタイル */
-    .chat-bubble {
+        background-color: {secondaryBackgroundColor};
+    }}
+    /* バブルチャット用のスタイル（例：薄緑） */
+    .chat-bubble {{
         background-color: #d4f7dc;
         border-radius: 10px;
         padding: 8px;
@@ -41,11 +67,12 @@ st.markdown(
         word-wrap: break-word;
         white-space: pre-wrap;
         margin: 4px 0;
-    }
-    .chat-header {
+    }}
+    .chat-header {{
         font-weight: bold;
         margin-bottom: 4px;
-    }
+        color: {primaryColor};
+    }}
     </style>
     """,
     unsafe_allow_html=True
