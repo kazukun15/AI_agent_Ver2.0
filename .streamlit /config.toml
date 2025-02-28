@@ -1,6 +1,6 @@
 [theme]
-primaryColor="#729075"
-backgroundColor="#f1ece3"
-secondaryBackgroundColor="#fff8ef"
-textColor="#5e796a"
-font="monospace"
+primaryColor = "#66BB6A"             # アクセントに濃いめのグリーン
+backgroundColor = "#F1ECE3"            # 背景はごく薄いクリーム色
+secondaryBackgroundColor = "#C8E6C9"   # サブ背景は淡いグリーン（バブル背景などに反映）
+textColor = "#424242"                  # テキストは落ち着いたダークグレー
+font = "monospace"
