@@ -6,12 +6,18 @@ import json
 from PIL import Image
 from streamlit_chat import message  # streamlit-chat のメッセージ表示用関数
 
-# ------------------------
-# テーマ設定の読み込み (.streamlit/config.toml)
-# ------------------------
+# ------------------------------------------------------------------
+# st.set_page_config() はストリームリットの最初のコマンドで呼び出す必要がある
+# ------------------------------------------------------------------
+st.set_page_config(page_title="ぼくのともだち", layout="wide")
+st.title("ぼくのともだち V3.0")
+
+# ------------------------------------------------------------------
+# .streamlit/config.toml のテーマ設定読み込み（出力は行わず、変数に格納）
+# ------------------------------------------------------------------
 try:
     try:
-        import tomllib  # Python 3.11以降の場合
+        import tomllib  # Python 3.11以降
     except ImportError:
         import toml as tomllib
     with open(".streamlit/config.toml", "rb") as f:
@@ -22,24 +28,16 @@ try:
     secondaryBackgroundColor = theme_config.get("secondaryBackgroundColor", "#fff8ef")
     textColor = theme_config.get("textColor", "#5e796a")
     font = theme_config.get("font", "monospace")
-    st.write("Theme configuration loaded:", theme_config)
 except Exception as e:
-    st.write("No theme configuration found or error reading .streamlit/config.toml.", e)
     primaryColor = "#729075"
     backgroundColor = "#f1ece3"
     secondaryBackgroundColor = "#fff8ef"
     textColor = "#5e796a"
     font = "monospace"
 
-# ------------------------
-# ページ設定
-# ------------------------
-st.set_page_config(page_title="ぼくのともだち", layout="wide")
-st.title("ぼくのともだち V3.0")
-
-# ------------------------
+# ------------------------------------------------------------------
 # 背景・共通スタイルの設定（テーマ設定を反映）
-# ------------------------
+# ------------------------------------------------------------------
 st.markdown(
     f"""
     <style>
@@ -57,7 +55,7 @@ st.markdown(
         margin-bottom: 20px;
         background-color: {secondaryBackgroundColor};
     }}
-    /* バブルチャット用のスタイル（例：薄緑） */
+    /* バブルチャット用のスタイル */
     .chat-bubble {{
         background-color: #d4f7dc;
         border-radius: 10px;
@@ -82,6 +80,7 @@ st.markdown(
 # ユーザーの名前入力（上部）
 # ------------------------
 user_name = st.text_input("あなたの名前を入力してください", value="ユーザー", key="user_name")
+
 # ------------------------
 # AIの年齢入力（上部）
 # ------------------------
@@ -103,7 +102,7 @@ NEW_CHAR_NAME = "新キャラクター"
 API_KEY = st.secrets["general"]["api_key"]
 MODEL_NAME = "gemini-2.0-flash-001"  # 必要に応じて変更
 NAMES = [YUKARI_NAME, SHINYA_NAME, MINORU_NAME]
-# ※新キャラクターは動的に決定します
+# ※新キャラクターは動的に決定
 
 # ------------------------
 # セッション初期化（チャット履歴）
