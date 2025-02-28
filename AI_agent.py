@@ -7,17 +7,17 @@ from PIL import Image
 from streamlit_chat import message  # streamlit-chat のメッセージ表示用関数
 
 # ------------------------------------------------------------------
-# 1. st.set_page_config() はストリームリットの最初のコマンドで呼び出す
+# st.set_page_config() は最初に呼び出す
 # ------------------------------------------------------------------
 st.set_page_config(page_title="ぼくのともだち", layout="wide")
 st.title("ぼくのともだち V3.0")
 
 # ------------------------------------------------------------------
-# 2. 同じディレクトリにある config.toml を読み込み
+# 同じディレクトリにある config.toml を読み込み（テーマ設定）
 # ------------------------------------------------------------------
 try:
     try:
-        import tomllib  # Python 3.11以降
+        import tomllib  # Python 3.11以降の場合
     except ImportError:
         import toml as tomllib
     with open("config.toml", "rb") as f:
@@ -29,7 +29,6 @@ try:
     textColor = theme_config.get("textColor", "#5e796a")
     font = theme_config.get("font", "monospace")
 except Exception as e:
-    # config.toml が存在しない、または読み込み失敗時はデフォルト値を使用
     primaryColor = "#729075"
     backgroundColor = "#f1ece3"
     secondaryBackgroundColor = "#fff8ef"
@@ -77,19 +76,43 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# ------------------------
+# ------------------------------------------------------------------
 # ユーザーの名前入力（上部）
-# ------------------------
+# ------------------------------------------------------------------
 user_name = st.text_input("あなたの名前を入力してください", value="ユーザー", key="user_name")
 
-# ------------------------
+# ------------------------------------------------------------------
 # AIの年齢入力（上部）
-# ------------------------
+# ------------------------------------------------------------------
 ai_age = st.number_input("AIの年齢を指定してください", min_value=1, value=30, step=1, key="ai_age")
 
-# ------------------------
-# キャラクター定義
-# ------------------------
+# ------------------------------------------------------------------
+# サイドバー：カスタム新キャラクター設定＆クイズ機能
+# ------------------------------------------------------------------
+st.sidebar.header("カスタム新キャラクター設定")
+custom_new_char_name = st.sidebar.text_input("新キャラクターの名前（未入力ならランダム）", value="", key="custom_new_char_name")
+custom_new_char_personality = st.sidebar.text_area("新キャラクターの性格・特徴（未入力ならランダム）", value="", key="custom_new_char_personality")
+
+st.sidebar.header("ミニゲーム／クイズ")
+# クイズ開始ボタンにユニークな key を指定
+if st.sidebar.button("クイズを開始する", key="quiz_start_button"):
+    quiz_list = [
+        {"question": "日本の首都は？", "answer": "東京"},
+        {"question": "富士山の標高は何メートル？", "answer": "3776"},
+        {"question": "寿司の主な具材は何？", "answer": "酢飯"},
+        {"question": "桜の花言葉は？", "answer": "美しさ"}
+    ]
+    quiz = random.choice(quiz_list)
+    st.session_state.quiz_active = True
+    st.session_state.quiz_question = quiz["question"]
+    st.session_state.quiz_answer = quiz["answer"]
+    st.session_state.messages.append({"role": "クイズ", "content": "クイズ: " + quiz["question"]})
+
+st.sidebar.info("※スマホの場合は、画面左上のハンバーガーメニューからサイドバーにアクセスできます。")
+
+# ------------------------------------------------------------------
+# キャラクター定義（固定メンバー）
+# ------------------------------------------------------------------
 USER_NAME = "user"
 ASSISTANT_NAME = "assistant"
 YUKARI_NAME = "ゆかり"
@@ -97,23 +120,23 @@ SHINYA_NAME = "しんや"
 MINORU_NAME = "みのる"
 NEW_CHAR_NAME = "新キャラクター"
 
-# ------------------------
-# 定数／設定（APIキーなど）
-# ------------------------
+# ------------------------------------------------------------------
+# 定数／設定（APIキー、モデル）
+# ------------------------------------------------------------------
 API_KEY = st.secrets["general"]["api_key"]
-MODEL_NAME = "gemini-2.0-flash-001"  # 必要に応じて変更
+MODEL_NAME = "gemini-2.0-flash-001"
 NAMES = [YUKARI_NAME, SHINYA_NAME, MINORU_NAME]
-# ※新キャラクターは動的に決定
+# ※新キャラクターはサイドバーで指定がなければランダム
 
-# ------------------------
+# ------------------------------------------------------------------
 # セッション初期化（チャット履歴）
-# ------------------------
+# ------------------------------------------------------------------
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# ------------------------
-# アイコン画像の読み込み
-# ------------------------
+# ------------------------------------------------------------------
+# アイコン画像の読み込み（avatars/ に配置）
+# ------------------------------------------------------------------
 try:
     img_user = Image.open("avatars/user.png")
     img_yukari = Image.open("avatars/yukari.png")
@@ -134,12 +157,12 @@ avatar_img_dict = {
     SHINYA_NAME: img_shinya,
     MINORU_NAME: img_minoru,
     NEW_CHAR_NAME: img_newchar,
-    ASSISTANT_NAME: "🤖",  # 絵文字で代用
+    ASSISTANT_NAME: "🤖",
 }
 
-# ------------------------
+# ------------------------------------------------------------------
 # Gemini API 呼び出し関数（requests 使用）
-# ------------------------
+# ------------------------------------------------------------------
 def remove_json_artifacts(text: str) -> str:
     if not isinstance(text, str):
         text = str(text) if text else ""
@@ -176,9 +199,9 @@ def call_gemini_api(prompt: str) -> str:
     except Exception as e:
         return f"エラー: レスポンス解析に失敗しました -> {str(e)}"
 
-# ------------------------
+# ------------------------------------------------------------------
 # 会話生成関連関数
-# ------------------------
+# ------------------------------------------------------------------
 def analyze_question(question: str) -> int:
     score = 0
     keywords_emotional = ["困った", "悩み", "苦しい", "辛い"]
@@ -194,7 +217,6 @@ def analyze_question(question: str) -> int:
 def adjust_parameters(question: str, ai_age: int) -> dict:
     score = analyze_question(question)
     params = {}
-    # AIの年齢によるパラメータの振り分け
     if ai_age < 30:
         params[YUKARI_NAME] = {"style": "明るくはっちゃけた", "detail": "とにかくエネルギッシュでポジティブな回答"}
         if score > 0:
@@ -222,6 +244,8 @@ def adjust_parameters(question: str, ai_age: int) -> dict:
     return params
 
 def generate_new_character() -> tuple:
+    if custom_new_char_name.strip() and custom_new_char_personality.strip():
+        return custom_new_char_name.strip(), custom_new_char_personality.strip()
     candidates = [
         ("たけし", "冷静沈着で皮肉屋、どこか孤高な存在"),
         ("さとる", "率直かつ辛辣で、常に現実を鋭く指摘する"),
@@ -272,9 +296,9 @@ def generate_summary(discussion: str) -> str:
     )
     return call_gemini_api(prompt)
 
-# ------------------------
+# ------------------------------------------------------------------
 # チャット履歴の表示（Databricks Q&A bot 形式）
-# ------------------------
+# ------------------------------------------------------------------
 for msg in st.session_state.messages:
     role = msg["role"]
     content = msg["content"]
@@ -292,47 +316,60 @@ for msg in st.session_state.messages:
                 unsafe_allow_html=True,
             )
 
-# ------------------------
+# ------------------------------------------------------------------
 # ユーザー入力の取得（st.chat_input）
-# ------------------------
+# ------------------------------------------------------------------
 user_input = st.chat_input("何か質問や話したいことがありますか？")
 if user_input:
-    with st.chat_message("user", avatar=avatar_img_dict.get(USER_NAME)):
-        st.markdown(
-            f'<div style="text-align: right;"><div class="chat-bubble"><div class="chat-header">{user_name}</div>{user_input}</div></div>',
-            unsafe_allow_html=True,
-        )
-    st.session_state.messages.append({"role": "user", "content": user_input})
-    
-    # AIの年齢も反映してパラメータを調整
-    if len(st.session_state.messages) == 1:
-        persona_params = adjust_parameters(user_input, ai_age)
-        discussion = generate_discussion(user_input, persona_params, ai_age)
+    # クイズがアクティブなら、ユーザーの入力をクイズの回答として処理
+    if st.session_state.get("quiz_active", False):
+        if user_input.strip().lower() == st.session_state.quiz_answer.strip().lower():
+            quiz_result = "正解です！おめでとうございます！"
+        else:
+            quiz_result = f"残念、不正解です。正解は {st.session_state.quiz_answer} です。"
+        st.session_state.messages.append({"role": "クイズ", "content": quiz_result})
+        with st.chat_message("クイズ", avatar="❓"):
+            st.markdown(
+                f'<div style="text-align: left;"><div class="chat-bubble"><div class="chat-header">クイズ</div>{quiz_result}</div></div>',
+                unsafe_allow_html=True,
+            )
+        st.session_state.quiz_active = False
     else:
-        history = "\n".join(
-            f'{msg["role"]}: {msg["content"]}'
-            for msg in st.session_state.messages
-            if msg["role"] in NAMES or msg["role"] == NEW_CHAR_NAME
-        )
-        discussion = continue_discussion(user_input, history)
-    
-    for line in discussion.split("\n"):
-        line = line.strip()
-        if line:
-            parts = line.split(":", 1)
-            role = parts[0]
-            content = parts[1].strip() if len(parts) > 1 else ""
-            st.session_state.messages.append({"role": role, "content": content})
-            display_name = user_name if role == "user" else role
-            if role == "user":
-                with st.chat_message(role, avatar=avatar_img_dict.get(USER_NAME)):
-                    st.markdown(
-                        f'<div style="text-align: right;"><div class="chat-bubble"><div class="chat-header">{display_name}</div>{content}</div></div>',
-                        unsafe_allow_html=True,
-                    )
-            else:
-                with st.chat_message(role, avatar=avatar_img_dict.get(role, "🤖")):
-                    st.markdown(
-                        f'<div style="text-align: left;"><div class="chat-bubble"><div class="chat-header">{display_name}</div>{content}</div></div>',
-                        unsafe_allow_html=True,
-                    )
+        with st.chat_message("user", avatar=avatar_img_dict.get(USER_NAME)):
+            st.markdown(
+                f'<div style="text-align: right;"><div class="chat-bubble"><div class="chat-header">{user_name}</div>{user_input}</div></div>',
+                unsafe_allow_html=True,
+            )
+        st.session_state.messages.append({"role": "user", "content": user_input})
+        
+        if len(st.session_state.messages) == 1:
+            persona_params = adjust_parameters(user_input, ai_age)
+            discussion = generate_discussion(user_input, persona_params, ai_age)
+        else:
+            history = "\n".join(
+                f'{msg["role"]}: {msg["content"]}'
+                for msg in st.session_state.messages
+                if msg["role"] in NAMES or msg["role"] == NEW_CHAR_NAME
+            )
+            discussion = continue_discussion(user_input, history)
+        
+        for line in discussion.split("\n"):
+            line = line.strip()
+            if line:
+                parts = line.split(":", 1)
+                role = parts[0]
+                content = parts[1].strip() if len(parts) > 1 else ""
+                st.session_state.messages.append({"role": role, "content": content})
+                display_name = user_name if role == "user" else role
+                if role == "user":
+                    with st.chat_message(role, avatar=avatar_img_dict.get(USER_NAME)):
+                        st.markdown(
+                            f'<div style="text-align: right;"><div class="chat-bubble"><div class="chat-header">{display_name}</div>{content}</div></div>',
+                            unsafe_allow_html=True,
+                        )
+                else:
+                    with st.chat_message(role, avatar=avatar_img_dict.get(role, "🤖")):
+                        st.markdown(
+                            f'<div style="text-align: left;"><div class="chat-bubble"><div class="chat-header">{display_name}</div>{content}</div></div>',
+                            unsafe_allow_html=True,
+                        )
